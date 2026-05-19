@@ -22,15 +22,17 @@ class ProfilingManager:
 
     def __init__(
         self,
-        habilitado: bool = aplicacion.profiler_habilitado,
         dir_salida: Path = Path(PATH_PROFILING),
         intervalo: float = 0.001,
     ):
-        self.enabled = habilitado
         self.output_dir = dir_salida
         self.interval = intervalo
         self.current_session: Optional[str] = None
         self._setup_directories()
+
+    @property
+    def enabled(self) -> bool:
+        return aplicacion.profiler_habilitado
 
     def _setup_directories(self) -> None:
         """Prepara estructura de directorios para resultados"""

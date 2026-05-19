@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 import time
 import os
@@ -32,7 +32,14 @@ class Manager:
     """
 
     estado_inicial: str
-    ruta_base: Path = Path(PATH_SAMPLES)
+    ruta_base: Path = field(default_factory=lambda: Path(PATH_SAMPLES))
+
+    def __post_init__(self) -> None:
+        if not self.ruta_base.is_absolute():
+            # Anclar al directorio raíz del módulo QNodes/ para que funcione
+            # sin importar desde qué directorio de trabajo se ejecute.
+            qnodes_root = Path(__file__).resolve().parents[2]  # QNodes/
+            self.ruta_base = (qnodes_root / self.ruta_base).resolve()
 
     @property
     def pagina(self) -> str:

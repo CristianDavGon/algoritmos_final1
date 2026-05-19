@@ -76,20 +76,55 @@ import multiprocessing
 import numpy as np
 import pandas as pd
 import os
-import re
 from pathlib import Path
 
 
-METHOD2_ROOT = Path(__file__).resolve().parents[1]
-GEOMIP_ROOT = Path(__file__).resolve().parents[3]
+METHOD2_ROOT = Path(__file__).resolve().parents[1]   # GeoMIP/
+GEOMIP_ROOT = Path(__file__).resolve().parents[1]    # GeoMIP/ (corregido: era parents[3] → Analisis/)
+PROJECT_ROOT = Path(__file__).resolve().parents[2]   # Proyecto V03 FINAL/
 
-def convertir_a_binario(texto, n_bits=20):
+_N_A_SHEET: dict[int, int] = {5: 1, 8: 2, 10: 3}
+
+
+def _letras_a_binario(texto: str, n_bits: int) -> str:
+    """'ABCDFG' → '11011100000...'"""
     posiciones = "ABCDEFGHIJKLMNOPQRST"[:n_bits]
-    binario = ["0"] * n_bits
-    for letra in texto:
+    bits = ["0"] * n_bits
+    for letra in str(texto).upper():
         if letra in posiciones:
-            binario[posiciones.index(letra)] = "1"
-    return "".join(binario)
+            bits[posiciones.index(letra)] = "1"
+    return "".join(bits)
+
+
+def _leer_pruebas_excel(ruta_excel: Path, n: int) -> list[tuple[str, str]]:
+    """Lee pares (alcance, mecanismo) del Excel canónico DatosPruebas2026_1.xlsx."""
+    sheet_idx = _N_A_SHEET.get(n, 2)
+    df = pd.read_excel(
+        ruta_excel,
+        sheet_name=sheet_idx,
+        header=None,
+        skiprows=5,
+        usecols="B:C",
+        names=["alcance", "mecanismo"],
+    )
+    df = df.dropna(subset=["alcance", "mecanismo"])
+    return [(str(r.alcance).strip(), str(r.mecanismo).strip()) for _, r in df.iterrows()]
+
+
+def resolver_tpm_path(estado_inicio: str) -> Path:
+    sample_name = f"N{len(estado_inicio)}A.csv"
+    candidates = (
+        METHOD2_ROOT / "src" / ".samples" / sample_name,
+        METHOD2_ROOT / ".samples" / sample_name,
+        GEOMIP_ROOT / "data" / "samples" / sample_name,
+    )
+    for c in candidates:
+        if c.exists():
+            return c
+    raise FileNotFoundError(
+        f"No se encontró '{sample_name}'. Busqué en: {', '.join(str(c) for c in candidates)}"
+    )
+
 
 def ejecutar_con_tiempo(config_sistema, condiciones, alcance, mecanismo, resultado_queue, tpm):
     try:
@@ -97,129 +132,79 @@ def ejecutar_con_tiempo(config_sistema, condiciones, alcance, mecanismo, resulta
         sia_dos = analizador_fi.aplicar_estrategia(condiciones, alcance, mecanismo, tpm)
         resultado_queue.put({
             "particion": sia_dos.particion,
-            "perdida": str(sia_dos.perdida).replace('.', ','),
-            "tiempo": str(sia_dos.tiempo_ejecucion).replace('.', ','),
+            "perdida": sia_dos.perdida,
+            "tiempo": sia_dos.tiempo_ejecucion,
         })
-
     except Exception as e:
-        resultado_queue.put({
-            "particion": None,
-            "perdida": None,
-            "tiempo": None,
-        })
-
-def resolver_tpm_path(estado_inicio: str) -> Path:
-    """Find TPM file in common project locations based on state size."""
-    sample_name = f"N{len(estado_inicio)}A.csv"
-    candidates = (
-        METHOD2_ROOT / "src" / ".samples" / sample_name,
-        METHOD2_ROOT / ".samples" / sample_name,
-        GEOMIP_ROOT / "data" / "samples" / sample_name,
-    )
-    for candidate in candidates:
-        if candidate.exists():
-            return candidate
-    raise FileNotFoundError(
-        f"No se encontró la TPM '{sample_name}'. Busqué en: {', '.join(str(c) for c in candidates)}"
-    )
-
-
-def inferir_estado_inicial() -> str:
-    """Infer an initial state from available datasets (prefers largest NxA.csv)."""
-    sample_dirs = (
-        METHOD2_ROOT / "src" / ".samples",
-        METHOD2_ROOT / ".samples",
-        GEOMIP_ROOT / "data" / "samples",
-    )
-    pattern = re.compile(r"N(\d+)[A-Z]\.csv$")
-    available_sizes = []
-
-    for sample_dir in sample_dirs:
-        if not sample_dir.exists():
-            continue
-        for sample_file in sample_dir.glob("N*.csv"):
-            match = pattern.match(sample_file.name)
-            if match:
-                available_sizes.append(int(match.group(1)))
-
-    if not available_sizes:
-        raise FileNotFoundError("No hay archivos de muestras TPM disponibles en data/samples ni .samples.")
-
-    n_bits = max(available_sizes)
-    return "1" + ("0" * (n_bits - 1))
+        resultado_queue.put({"particion": None, "perdida": None, "tiempo": None})
 
 
 def ejecutar_desde_excel(
     ruta_excel: Path,
     ruta_salida: Path,
-    inicio=0,
-    cantidad=50,
-    estado_inicio: str | None = None,
-    condiciones: str | None = None,
+    estado_inicio: str,
 ):
-    df = pd.read_excel(ruta_excel, sheet_name=8, usecols="B", skiprows=3, names=["Subsistema"]) #! here
-    filas = df["Subsistema"].dropna().tolist()
-    filas = filas[inicio:inicio + cantidad]
+    n = len(estado_inicio)
+    condiciones = "1" * n
+    pruebas = _leer_pruebas_excel(ruta_excel, n)
     resultados = []
 
-    estado_inicio = estado_inicio or inferir_estado_inicial()
-    condiciones = condiciones or ("1" * len(estado_inicio))
     tpm_path = resolver_tpm_path(estado_inicio)
     tpm = np.genfromtxt(tpm_path, delimiter=",")
 
-    for i, fila in enumerate(filas, start=inicio + 1):
-        partes = fila.split("|")
-        if len(partes) != 2:
-            continue
-
-        alcance = convertir_a_binario(partes[0][:len(partes[0]) - 3], n_bits=len(estado_inicio))
-        mecanismo = convertir_a_binario(partes[1][:len(partes[1]) - 1], n_bits=len(estado_inicio))
-        print(f"Iteración {i} - Alcance: {alcance}, Mecanismo: {mecanismo}")
+    for i, (letras_alcance, letras_mecanismo) in enumerate(pruebas, start=1):
+        alcance = _letras_a_binario(letras_alcance, n)
+        mecanismo = _letras_a_binario(letras_mecanismo, n)
+        print(f"Prueba {i:>3} — Alcance: {letras_alcance:<10} Mecanismo: {letras_mecanismo}")
 
         config_sistema = Manager(estado_inicial=estado_inicio)
 
         resultado_queue = multiprocessing.Queue()
-        proceso = multiprocessing.Process(target=ejecutar_con_tiempo, args=(config_sistema, condiciones, alcance, mecanismo, resultado_queue, tpm))
-        
+        proceso = multiprocessing.Process(
+            target=ejecutar_con_tiempo,
+            args=(config_sistema, condiciones, alcance, mecanismo, resultado_queue, tpm),
+        )
         proceso.start()
-        proceso.join(timeout=3600)  
+        proceso.join(timeout=3600)
 
         if proceso.is_alive():
-            print(f"Iteración {i} - Tiempo límite alcanzado, terminando proceso...")
+            print(f"  Tiempo límite alcanzado en prueba {i}.")
             proceso.terminate()
             proceso.join()
-            resultado = {"perdida": None, "tiempo": None, "particion": None}
+            resultado = {"particion": None, "perdida": None, "tiempo": None}
         else:
             resultado = (
                 resultado_queue.get()
                 if not resultado_queue.empty()
-                else {"perdida": None, "tiempo": None, "particion": None}
+                else {"particion": None, "perdida": None, "tiempo": None}
             )
 
         resultados.append({
-            "Iteración": i,
-            "Alcance": alcance,
-            "Mecanismo": mecanismo,
+            "Prueba": i,
+            "Alcance": letras_alcance,
+            "Mecanismo": letras_mecanismo,
             "Partición": resultado["particion"],
-            "Pérdida": resultado["perdida"],
-            "Tiempo de ejecución (s)": resultado["tiempo"],
+            "Pérdida (φ)": resultado["perdida"],
+            "Tiempo (s)": resultado["tiempo"],
         })
+
     df_resultados = pd.DataFrame(resultados)
     ruta_salida.parent.mkdir(parents=True, exist_ok=True)
-    df_resultados.to_excel(ruta_salida, index=False)
+    df_resultados.to_csv(ruta_salida, index=False, encoding="utf-8")
     print(f"Resultados guardados en {ruta_salida}")
 
 def iniciar():
     ruta_entrada = Path(
         os.getenv(
             "GEOMIP_INPUT_XLSX",
-            str(GEOMIP_ROOT / "results" / "Pruebas_Metodo2.xlsx"),
+            str(PROJECT_ROOT / "data" / "DatosPruebas2026_1.xlsx"),
         )
     )
     ruta_salida = Path(
         os.getenv(
-            "GEOMIP_OUTPUT_XLSX",
-            str(GEOMIP_ROOT / "results" / "resultados_Geometric.xlsx"),
+            "GEOMIP_OUTPUT_CSV",
+            str(GEOMIP_ROOT / "results" / "resultados_N8A.csv"),
         )
     )
-    ejecutar_desde_excel(ruta_entrada, ruta_salida)
+    estado_inicio = os.getenv("GEOMIP_ESTADO_INICIO", "10000000")
+    ejecutar_desde_excel(ruta_entrada, ruta_salida, estado_inicio=estado_inicio)

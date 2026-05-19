@@ -18,12 +18,12 @@ from typing import Callable
 
 import numpy as np
 
-from src.iit.base.consts import FLOAT_ZERO, INFTY_POS
-from src.iit.base.funcs import emd_efecto
-from src.iit.core.solution import Solution
-from src.iit.core.system import System
-from src.iit.strategies.python.basic.fmt import fmt_basic
-from src.iit.strategies.python.sia import SIA
+from src.constants.base import FLOAT_ZERO, INFTY_POS
+from src.funcs.iit import emd_efecto
+from src.models.core.solution import Solution
+from src.models.core.system import System
+from src.funcs.format import fmt_biparticion_q as fmt_basic
+from src.models.base.sia import SIA
 
 
 def oracle(

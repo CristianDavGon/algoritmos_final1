@@ -136,16 +136,16 @@ sequenceDiagram
 > **Objetivo:** Compilar los algoritmos existentes antes de extenderlos.
 > **Done cuando:** Ambas estrategias base corren correctamente sobre N8A sin errores.
 
-- [ ] Leer la arquitectura completa de `/QNodes/src/` (estrategia, modelos, funciones)
-- [ ] Leer la arquitectura completa de `/GeoMIP/src/` (estrategia, modelos, funciones)
-- [ ] Identificar las funciones que generan biparticiones en cada módulo
-- [ ] Identificar cómo se calcula φ (Earth Mover's Distance) en cada módulo
-- [ ] Corregir errores de ejecución de pruebas para el documento excel `/data/DatosPruebas2026_1.xlsx` y guardar los resultados en `results/` (actualmente se guardan en rutas incorrectas).
-  - [ ] Permitir hacer pruebas desde `/QNodes/exec.py` y generar CSV con resultados.
-  - [ ] Permitir hacer pruebas desde `/GeoMIP/exec.py` y generar CSV con resultados.
-- [ ] Ejecutar `QNodes` sobre `N8A.csv` y verificar salida correcta
-- [ ] Ejecutar `GeoMIP` sobre `N8A.csv` y verificar salida correcta
-- [ ] Documentar diferencias estructurales entre QNodes y GeoMIP en [context/instructions.md](/context/instructions.md)
+- [x] Leer la arquitectura completa de `/QNodes/src/` (estrategia, modelos, funciones)
+- [x] Leer la arquitectura completa de `/GeoMIP/src/` (estrategia, modelos, funciones)
+- [x] Identificar las funciones que generan biparticiones en cada módulo
+- [x] Identificar cómo se calcula φ (Earth Mover's Distance) en cada módulo
+- [x] Corregir errores de ejecución de pruebas para el documento excel `/data/DatosPruebas2026_1.xlsx` y guardar los resultados en `results/` (actualmente se guardan en rutas incorrectas).
+  - [x] Permitir hacer pruebas desde `/QNodes/exec.py` y generar CSV con resultados.
+  - [x] Permitir hacer pruebas desde `/GeoMIP/exec.py` y generar CSV con resultados.
+- [x] Ejecutar `QNodes` sobre `N8A.csv` y verificar salida correcta (φ=0.5 prueba 1 ✓)
+- [ ] Ejecutar `GeoMIP` sobre `N8A.csv` y verificar salida correcta (pendiente ejecución completa)
+- [x] Documentar diferencias estructurales entre QNodes y GeoMIP en [context/instructions.md](/context/instructions.md)
 
 ---
 
