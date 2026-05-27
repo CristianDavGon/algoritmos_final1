@@ -1,0 +1,16 @@
+[project]
+name = "proyecto-v03-final"
+version = "0.1.0"
+description = "Unified environment for GeoMIP and QNodes — MIP algorithms framework"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "colorama>=0.4.6",
+    "numpy>=2.0.2",
+    "openpyxl>=3.1.5",
+    "pandas>=2.3.3",
+    "pyinstrument>=5.1.2",
+    "pyphi>=1.2.0",
+    "pyttsx3>=2.99",
+    "scipy>=1.17.0",
+]
