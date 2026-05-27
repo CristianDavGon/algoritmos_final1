@@ -11,7 +11,7 @@ from src.strategies.q_nodes import QNodes
 RESULTS_DIR = Path(__file__).resolve().parents[1] / "results"
 
 
-_N_A_SHEET: dict[int, int] = {5: 1, 8: 2, 10: 3}
+_N_A_SHEET: dict[int, int] = {5: 1, 8: 2, 10: 3, 15: 4, 20: 5, 22: 6, 25: 7}
 
 
 def _letras_a_binario(texto: str, n_bits: int) -> str:

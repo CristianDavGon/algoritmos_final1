@@ -83,7 +83,7 @@ METHOD2_ROOT = Path(__file__).resolve().parents[1]   # GeoMIP/
 GEOMIP_ROOT = Path(__file__).resolve().parents[1]    # GeoMIP/ (corregido: era parents[3] → Analisis/)
 PROJECT_ROOT = Path(__file__).resolve().parents[2]   # Proyecto V03 FINAL/
 
-_N_A_SHEET: dict[int, int] = {5: 1, 8: 2, 10: 3}
+_N_A_SHEET: dict[int, int] = {5: 1, 8: 2, 10: 3, 15: 4, 20: 5, 22: 6, 25: 7}
 
 
 def _letras_a_binario(texto: str, n_bits: int) -> str:
