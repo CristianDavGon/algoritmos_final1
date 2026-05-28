@@ -1,0 +1,329 @@
+# ============================================================
+# Python
+# ============================================================
+__pycache__/
+*.py[oc]
+*$py.class
+*.so
+.Python
+
+# Distribution / packaging
+build/
+dist/
+wheels/
+*.egg-info/
+*.egg
+MANIFEST
+develop-eggs/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+share/python-wheels/
+.installed.cfg
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# ============================================================
+# Testing / coverage
+# ============================================================
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
+
+# ============================================================
+# Virtual environments
+# ============================================================
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# ============================================================
+# Machine learning artifacts
+# ============================================================
+*.pkl
+*.model
+*.joblib
+*.h5
+*.onnx
+*.tflite
+
+# ============================================================
+# Package managers
+# ============================================================
+# UV lock files in subdirectories (only root uv.lock is tracked)
+code/GeoMIP/uv.lock
+code/QNodes/uv.lock
+
+# pyproject.toml in subdirectories (only root is tracked)
+code/GeoMIP/pyproject.toml
+code/QNodes/pyproject.toml
+
+# PDM
+.pdm.toml
+.pdm-python
+.pdm-build/
+__pypackages__/
+
+# ============================================================
+# Project outputs (results, profiling, logs)
+# ============================================================
+results/
+**/results/
+review/
+**/review/
+.logs/
+**/.logs/
+*.log
+
+# ============================================================
+# PyPhi
+# ============================================================
+__pyphi_cache__/
+**/__pyphi_cache__/
+pyphi.log
+
+# ============================================================
+# Hidden / archive
+# ============================================================
+.archive/
+**/.archive/
+
+# ============================================================
+# Google Drive / cloud sync
+# ============================================================
+.tmp.driveupload/
+**/.tmp.driveupload/
+.tmp.drivedownload/
+
+# ============================================================
+# Project-specific scratch / temp files
+# ============================================================
+alt.py
+**/alt.py
+prueba.py
+**/prueba.py
+temp/
+
+# Testing strategies hidden
+**/testing/
+src/tests/**
+src/testing/
+
+# Geometry (generated)
+**/geometry.py
+
+# Unreleased nodes
+**/qp_nodes.py
+
+# ============================================================
+# IDE / editor
+# ============================================================
+.DS_Store
+.idea/
+.vscode/
+*.swp
+.*.swp
+
+# Spyder
+.spyderproject
+.spyproject
+
+# Rope
+.ropeproject
+
+# PyCharm
+# (add #.idea/ above if you want to track run configs)
+
+# ============================================================
+# Type checkers / static analysis
+# ============================================================
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+.pytype/
+cython_debug/
+
+# ============================================================
+# Jupyter / IPython
+# ============================================================
+.ipynb_checkpoints
+profile_default/
+ipython_config.py
+
+# ============================================================
+# LaTeX auxiliary files
+# ============================================================
+*.aux
+*.lof
+*.lot
+*.fls
+*.out
+*.toc
+*.fmt
+*.fot
+*.cb
+*.cb2O
+.*.lb
+*.dvi
+*.xdv
+*-converted-to.*
+.pdf
+*.bbl
+*.bbl-SAVE-ERROR
+*.bcf
+*.bcf-SAVE-ERROR
+*.blg
+*-blx.aux
+*-blx.bib
+*.run.xml
+*.fdb_latexmk
+*.synctex
+*.synctex.gz
+*.synctex.gz(busy)
+*.pdfsync
+*.rubbercache
+rubber.cache
+latex.out/
+*.alg
+*.loa
+*.snm
+*.nav
+*.pre
+*.vrb
+*.soc
+*.loc
+*.cut
+*.cpt
+*.spl
+*.ent
+*.lox
+*.mf
+*.mp
+*.tfm
+_minted*
+*.data.minted
+*.pyg
+*.mw
+*.newpax
+*.nlg
+*.nlo
+*.nls
+*.pax
+*.pdfpc
+*.sagetex.sage
+*.sagetex.py
+*.sagetex.scmd
+*.wrt
+*.spell.bad
+*.spell.txt
+svg-inkscape/
+*.sout
+*.sympy
+sympy-plots-for-*.tex/
+*.upa
+*.upb
+*.pytxcode
+pythontex-files-*/
+*.listing
+*.loe
+*.dpth
+*.md5
+*.auxlock
+*.ptc
+*.tdo
+*.hst
+*.ver
+*.lod
+*.xcp
+*.xmpi
+*.xdy
+*.xyc
+*.xyd
+*.ttt
+*.fff
+TSWLatexianTemp*
+*.bak
+*.sav
+*.bak[0-9]*
+.texpadtmp
+*.lyx~
+*.backup
+*~[0-9]*
+*.tps
+./auto/*
+*.el
+*-tags.tex
+*.sta
+*.lpz
+*.xwm
+*.thm
+*.atfi
+*.gaux
+*.glog
+*.gtex
+*.4ct
+*.4tc
+*.idv
+*.lg
+*.trc
+*.xref
+*.hd
+*.brf
+*-concordance.tex
+*-tikzDictionary
+*.lol
+*.ltjruby
+*.idx
+*.ilg
+*.ind
+*.maf
+*.mlf
+*.mlt
+*.mtc[0-9]*
+*.slf[0-9]*
+*.slt[0-9]*
+*.stc[0-9]*
+*.acn
+*.acr
+*.glg
+*.glg-abr
+*.glo
+*.glo-abr
+*.gls
+*.gls-abr
+*.glsdefs
+*.lzo
+*.lzs
+*.slg
+*.slo
+*.sls
+*.gnuplot
+*.table
+*-gnuplottex-*
+*.pdfpc

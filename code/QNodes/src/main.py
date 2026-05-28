@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 
 from src.controllers.manager import Manager
-from src.strategies.q_nodes import QNodes
+from src.strategies.qnodes import QNodes
 
 
 RESULTS_DIR = Path(__file__).resolve().parents[1] / "results"
@@ -14,9 +14,8 @@ RESULTS_DIR = Path(__file__).resolve().parents[1] / "results"
 _N_A_SHEET: dict[int, int] = {5: 1, 8: 2, 10: 3, 15: 4, 20: 5, 22: 6, 25: 7}
 
 
-def _letras_a_binario(texto: str, n_bits: int) -> str:
+def _letras_a_binario(texto: str, n_bits: int, posiciones: str) -> str:
     """'ABCDFG' → '11011100000...' (posición A=0, B=1, ...)."""
-    posiciones = "ABCDEFGHIJKLMNOPQRST"[:n_bits]
     bits = ["0"] * n_bits
     for letra in str(texto).upper():
         if letra in posiciones:
@@ -25,17 +24,27 @@ def _letras_a_binario(texto: str, n_bits: int) -> str:
 
 
 def _leer_pruebas_excel(ruta_excel: Path, n: int) -> list[tuple[str, str]]:
-    """Lee pares (alcance, mecanismo) del Excel canónico DatosPruebas2026_1.xlsx."""
+    """
+    Abre el Excel, busca la hoja correcta según N y extrae las columnas de Alcance y Mecanismo.
+    """
     sheet_idx = _N_A_SHEET.get(n, 2)
-    df = pd.read_excel(
-        ruta_excel,
-        sheet_name=sheet_idx,
-        header=None,
-        skiprows=5,        # fila 0-4 son cabeceras: estado inicial, sistema, particiones, labels, columnas
-        usecols="B:C",
-        names=["alcance", "mecanismo"],
-    )
+    try:
+        df = pd.read_excel(
+            ruta_excel,
+            sheet_name=sheet_idx,
+            header=None,
+            skiprows=5,
+            usecols="B:C",
+            names=["alcance", "mecanismo"],
+        )
+    except Exception as e:
+        print(f"Error crítico al leer el Excel (Hoja {sheet_idx}): {e}")
+        return []
+
     df = df.dropna(subset=["alcance", "mecanismo"])
+    if df.empty:
+        print(f"Advertencia: No se encontraron datos válidos en las columnas B:C de la hoja {sheet_idx}")
+        
     return [(str(row.alcance).strip(), str(row.mecanismo).strip()) for _, row in df.iterrows()]
 
 
@@ -45,20 +54,24 @@ def ejecutar_desde_excel(
     estado_inicio: str,
 ):
     n = len(estado_inicio)
-    condiciones = "1" * n
     pruebas = _leer_pruebas_excel(ruta_excel, n)
     resultados = []
+    
+    # Optimizaciones: Sacar constantes del bucle (Invariantes)
+    posiciones_n = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"[:n]
+    condiciones = "1" * n
 
     gestor = Manager(estado_inicio)
     tpm = gestor.cargar_red()
 
+    analizador = QNodes(tpm) 
+
     for i, (letras_alcance, letras_mecanismo) in enumerate(pruebas, start=1):
-        alcance = _letras_a_binario(letras_alcance, n)
-        mecanismo = _letras_a_binario(letras_mecanismo, n)
+        alcance = _letras_a_binario(letras_alcance, n, posiciones_n)
+        mecanismo = _letras_a_binario(letras_mecanismo, n, posiciones_n)
         print(f"Prueba {i:>3} — Alcance: {letras_alcance:<10} Mecanismo: {letras_mecanismo}")
 
         try:
-            analizador = QNodes(tpm)  # nueva instancia por iteración: evita cache contaminada
             sol = analizador.aplicar_estrategia(estado_inicio, condiciones, alcance, mecanismo)
             resultados.append({
                 "Prueba": i,
@@ -88,11 +101,11 @@ def ejecutar_desde_excel(
 
 
 def iniciar():
-    """Punto de entrada principal: procesa DatosPruebas2026_1.xlsx con N8A."""
+    """Punto de entrada principal: procesa DatosPruebas2026_1.xlsx con N15B."""
     project_root = Path(__file__).resolve().parents[2]
     ruta_excel = project_root / "data" / "DatosPruebas2026_1.xlsx"
-    ruta_salida = RESULTS_DIR / "resultados_N8A.csv"
-
-    estado_inicio = "10000000"  # N=8, estado inicial canónico
+    estado_inicio = "1" + "0" * 14
+    n = len(estado_inicio)
+    ruta_salida = RESULTS_DIR / f"resultados_N{n}B.csv"
 
     ejecutar_desde_excel(ruta_excel, ruta_salida, estado_inicio)

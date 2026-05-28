@@ -1,69 +1,3 @@
-# from src.controllers.manager import Manager
-
-# from src.controllers.strategies.force import BruteForce
-# from src.controllers.strategies.q_nodes import QNodes
-# from src.controllers.strategies.geometric import GeometricSIA
-
-
-# def iniciar():
-#     """Punto de entrada principal"""
-#                     # ABCD #
-#     # estado_inicial = "100"
-#     # condiciones =    "111"
-#     # alcance =        "111"
-#     # mecanismo =      "111"
-#     # estado_inicial = "0000"
-#     # condiciones =    "1111"
-#     # alcance =        "1111"
-#     # mecanismo =      "1111"
-#     # estado_inicial = "1000"
-#     # condiciones =    "1111"
-#     # alcance =        "0111"
-#     # mecanismo =      "1111"
-#     # estado_inicial = "100000"
-#     # condiciones =    "111111"
-#     # alcance =        "101011"
-#     # mecanismo =      "111111"
-#     # estado_inicial = "100000"
-#     # condiciones =    "111111"
-#     # alcance =        "111111"
-#     # mecanismo =      "111111"
-#     # estado_inicial = "100000"
-#     # condiciones =    "111111"
-#     # alcance =        "111111"
-#     # mecanismo =      "011111"
-#     # estado_inicial = "1000000000"
-#     # condiciones =    "1111111111"
-#     # alcance =        "1111111111"
-#     # mecanismo =      "1111111111"
-#     estado_inicial = "1000000000"
-#     condiciones =    "1111111111"
-#     alcance =        "0101010101"
-#     mecanismo =      "1111111111"
-#     # estado_inicial = "1000000000"
-#     # condiciones =    "1111111111"
-#     # alcance =        "1111111110"
-#     # mecanismo =      "1111111111"
-#     # estado_inicial = "10000000000000000000"
-#     # condiciones =    "11111111111111111111"
-#     # alcance =        "11111111111111111111"
-#     # mecanismo =      "11111111111111111111"
-#     # estado_inicial = "10000000000000000000"
-#     # condiciones =    "11111111111111111111"
-#     # alcance =        "11011011011011011011"
-#     # mecanismo =      "10101010101010101010"
-
-#     gestor_sistema = Manager(estado_inicial)
-
-#     ### Ejemplo de solución mediante módulo de fuerza bruta ###
-#     analizador_fb = GeometricSIA(gestor_sistema)
-#     # analizador_fb = BruteForce(gestor_sistema)
-#     sia_uno = analizador_fb.aplicar_estrategia(
-#         condiciones,
-#         alcance,
-#         mecanismo,
-#     )
-#     print(sia_uno)
 from src.controllers.manager import Manager
 from src.controllers.strategies.geometric import GeometricSIA
 from src.controllers.strategies.q_nodes import QNodes
@@ -79,16 +13,18 @@ import os
 from pathlib import Path
 
 
-METHOD2_ROOT = Path(__file__).resolve().parents[1]   # GeoMIP/
-GEOMIP_ROOT = Path(__file__).resolve().parents[1]    # GeoMIP/ (corregido: era parents[3] → Analisis/)
-PROJECT_ROOT = Path(__file__).resolve().parents[2]   # Proyecto V03 FINAL/
+METHOD2_ROOT = Path(__file__).resolve().parents[1]
+GEOMIP_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+RESULTS_DIR = GEOMIP_ROOT / "results"
 
 _N_A_SHEET: dict[int, int] = {5: 1, 8: 2, 10: 3, 15: 4, 20: 5, 22: 6, 25: 7}
 
 
 def _letras_a_binario(texto: str, n_bits: int) -> str:
     """'ABCDFG' → '11011100000...'"""
-    posiciones = "ABCDEFGHIJKLMNOPQRST"[:n_bits]
+    # 26 nodos
+    posiciones = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"[:n_bits]
     bits = ["0"] * n_bits
     for letra in str(texto).upper():
         if letra in posiciones:
@@ -112,7 +48,7 @@ def _leer_pruebas_excel(ruta_excel: Path, n: int) -> list[tuple[str, str]]:
 
 
 def resolver_tpm_path(estado_inicio: str) -> Path:
-    sample_name = f"N{len(estado_inicio)}A.csv"
+    sample_name = f"N{len(estado_inicio)}B.csv"
     candidates = (
         METHOD2_ROOT / "src" / ".samples" / sample_name,
         METHOD2_ROOT / ".samples" / sample_name,
@@ -137,7 +73,6 @@ def ejecutar_con_tiempo(config_sistema, condiciones, alcance, mecanismo, resulta
         })
     except Exception as e:
         resultado_queue.put({"particion": None, "perdida": None, "tiempo": None})
-
 
 def ejecutar_desde_excel(
     ruta_excel: Path,
@@ -200,11 +135,10 @@ def iniciar():
             str(PROJECT_ROOT / "data" / "DatosPruebas2026_1.xlsx"),
         )
     )
-    ruta_salida = Path(
-        os.getenv(
-            "GEOMIP_OUTPUT_CSV",
-            str(GEOMIP_ROOT / "results" / "resultados_N8A.csv"),
-        )
-    )
-    estado_inicio = os.getenv("GEOMIP_ESTADO_INICIO", "10000000")
+    estado_inicio = os.getenv("GEOMIP_ESTADO_INICIO", "1" + "0" * 14)
+    n = len(estado_inicio)
+
+    ruta_salida_default = str(RESULTS_DIR / f"resultados_N{n}B.csv")
+    ruta_salida = Path(os.getenv("GEOMIP_OUTPUT_CSV", ruta_salida_default))
+
     ejecutar_desde_excel(ruta_entrada, ruta_salida, estado_inicio=estado_inicio)

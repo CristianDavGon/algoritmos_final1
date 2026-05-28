@@ -138,12 +138,25 @@ def qnodes(D: int, f: Callable[[int], float], full_mask: int) -> tuple[float, in
 class QNodes(SIA):
     """MIP via Queyranne by nodes: O(D³·N) con oracle lazy vs O(2^(D-1)·N) de analytic."""
 
+    def aplicar_estrategia(
+        self,
+        estado_inicial: str,
+        condicion: str,
+        alcance: str,
+        mecanismo: str,
+    ) -> Solution:
+        self.sia_preparar_subsistema(estado_inicial, condicion, alcance, mecanismo)
+        self.sistema = self.sia_subsistema
+        self.distribucion = self.sia_dists_marginales
+        self.nombre = self.__class__.__name__
+        return self.resolver()
+
     def winner(self, sistema: System) -> tuple[tuple[int, ...], tuple[int, ...]]:
-        D = len(sistema.dims)
+        D = len(sistema.dims_ncubos)
         N = len(sistema.ncubos)
 
-        data_nd = np.stack([c.ndata for c in sistema.ncubos])
-        pivot_idx = tuple(int(sistema.estado_inicial[dim]) for dim in sistema.dims)
+        data_nd = np.stack([c.data for c in sistema.ncubos])
+        pivot_idx = tuple(int(sistema.estado_inicial[dim]) for dim in sistema.dims_ncubos)
         pivot_vals = data_nd[(slice(None),) + pivot_idx]  # shape (N,)
 
         # Baseline de concentración
@@ -171,20 +184,20 @@ class QNodes(SIA):
         node_in_a = np.abs(mean_b - pivot_vals) <= np.abs(mean_a - pivot_vals)
 
         alcance = tuple(c.indice for i, c in enumerate(sistema.ncubos) if node_in_a[i])
-        mecanismo = tuple(sistema.dims[d] for d in range(D) if (best_mask_a >> d) & 1)
+        mecanismo = tuple(sistema.dims_ncubos[d] for d in range(D) if (best_mask_a >> d) & 1)
         return alcance, mecanismo
 
     def resolver(self) -> Solution:
         dm_original = self.distribucion
         t0 = time.perf_counter()
 
-        if not self.sistema.indices or not self.sistema.dims:
+        if not self.sistema.indices_ncubos.size or not self.sistema.dims_ncubos.size:
             return Solution(
                 estrategia=self.nombre.capitalize(),
                 perdida=FLOAT_ZERO,
                 distribucion_subsistema=dm_original,
                 distribucion_particion=dm_original,
-                particion=fmt_basic(((), ()), ((), ())).strip(),
+                particion=fmt_basic([], []).strip(),
                 tiempo_total=time.perf_counter() - t0,
                 quiere_hablar=False,
             )
@@ -195,9 +208,13 @@ class QNodes(SIA):
         perdida = emd_efecto(dm, dm_original)
 
         tiempo = time.perf_counter() - t0
-        texto_particion = fmt_basic(
-            (alcance, mecanismo), (self.sistema.indices, self.sistema.dims)
-        )
+        all_indices = list(self.sistema.indices_ncubos)
+        all_dims = list(self.sistema.dims_ncubos)
+        prim = [(1, idx) for idx in alcance] + [(0, dim) for dim in mecanismo]
+        dual = [(1, idx) for idx in all_indices if idx not in alcance] + [
+            (0, dim) for dim in all_dims if dim not in mecanismo
+        ]
+        texto_particion = fmt_basic(prim, dual)
 
         return Solution(
             estrategia=self.nombre.capitalize(),
