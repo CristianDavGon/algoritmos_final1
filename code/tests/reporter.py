@@ -184,9 +184,9 @@ def imprimir_resumen(report: BenchmarkReport) -> None:
     """Print a formatted summary table to stdout."""
     w = 66
     red = f"N{report.n_nodes}{report.tpm_page}"
-    print(f"\n{'━' * w}")
+    print(f"\n{'=' * w}")
     print(f"  RESUMEN  {report.strategy_name} vs PyPhi  |  Red: {red}  |  {report.total_tests} pruebas")
-    print(f"{'━' * w}")
+    print(f"{'=' * w}")
     print(f"  Exactitud phi         : {report.phi_matches}/{report.total_tests}  ({report.phi_accuracy_pct:.1f}%)")
     print(f"  Exactitud particion   : {report.partition_matches}/{report.total_tests}  ({report.partition_accuracy_pct:.1f}%)")
     avg_s = report.avg_speedup
@@ -195,4 +195,4 @@ def imprimir_resumen(report: BenchmarkReport) -> None:
     print(f"  Delta-phi promedio    : {f'{avg_d:.6f}' if avg_d is not None else 'N/A'}")
     max_d = report.max_delta_phi
     print(f"  Delta-phi maximo      : {f'{max_d:.6f}' if max_d is not None else 'N/A'}")
-    print(f"{'━' * w}\n")
+    print(f"{'=' * w}\n")

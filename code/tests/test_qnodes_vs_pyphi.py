@@ -22,7 +22,7 @@ if str(_CODE_ROOT) not in sys.path:
     sys.path.insert(0, str(_CODE_ROOT))
 
 # ─── CONFIGURE HERE ───────────────────────────────────────────────────────────
-ESTADO_INICIO: str = "1000000000"  # length = N nodes  (10 nodes → N10)
+ESTADO_INICIO: str = "1"  + "0" * 9  # length = N nodes  (10 nodes → N10)
 PAGINA: str = "A"
 N_TESTS: int | None = None        # None = all test cases from Excel (~49)
 TOL_PHI: float = 1e-4

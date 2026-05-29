@@ -40,6 +40,8 @@ class QNodesAdapter(StrategyAdapter):
 
     def __init__(self, pagina: str = "A") -> None:
         self._pagina = pagina
+        self._qnodes = None
+        self._tpm_id: int | None = None
         _ensure_qnodes_path()
         from src.models.base.application import aplicacion  # noqa: PLC0415
         aplicacion.set_pagina_red_muestra(pagina)
@@ -54,7 +56,11 @@ class QNodesAdapter(StrategyAdapter):
         _ensure_qnodes_path()
         try:
             from src.strategies.qnodes import QNodes  # noqa: PLC0415
-            sol = QNodes(tpm).aplicar_estrategia(
+            if self._qnodes is None or self._tpm_id != id(tpm):
+                self._qnodes = QNodes(tpm)
+                self._tpm_id = id(tpm)
+
+            sol = self._qnodes.aplicar_estrategia(
                 test_case.estado_inicial,
                 test_case.condicion,
                 test_case.alcance_bin,

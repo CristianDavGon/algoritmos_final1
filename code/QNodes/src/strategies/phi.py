@@ -3,6 +3,18 @@ import numpy as np
 from src.funcs.iit import ABECEDARY, lil_endian
 from src.funcs.format import fmt_biparticion_fuerza_bruta
 import math
+import collections
+from collections.abc import Iterable, Mapping, MutableMapping, Sequence
+
+# Python 3.10+ moved these aliases to collections.abc; pyphi still imports from collections.
+if not hasattr(collections, "Iterable"):
+    setattr(collections, "Iterable", Iterable)
+if not hasattr(collections, "Mapping"):
+    setattr(collections, "Mapping", Mapping)
+if not hasattr(collections, "MutableMapping"):
+    setattr(collections, "MutableMapping", MutableMapping)
+if not hasattr(collections, "Sequence"):
+    setattr(collections, "Sequence", Sequence)
 
 from pyphi import Network, Subsystem
 from pyphi.labels import NodeLabels

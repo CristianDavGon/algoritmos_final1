@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import gc
+import sys
+
 import numpy as np
 
 from tests.adapters.base import PyPhiAdapter, StrategyAdapter
@@ -86,7 +89,9 @@ class BenchmarkRunner:
             records.append(record)
 
             self._print_progress(tc, ref_result, cand_result, record, from_cache)
+            self._clear_runtime_caches()
 
+        self._cache.save()
         report = agregar_reporte(
             records, self._strategy.strategy_name, n_nodes, tpm_page, estado_inicial
         )
@@ -111,3 +116,13 @@ class BenchmarkRunner:
             f"  phi={phi_ref}/{phi_cand} {phi_sym}"
             f"{spd}"
         )
+
+    @staticmethod
+    def _clear_runtime_caches() -> None:
+        """Release PyPhi's in-process caches after each benchmark case."""
+        pyphi = sys.modules.get("pyphi")
+        if pyphi is not None:
+            clear = getattr(getattr(pyphi, "cache", None), "clear_all_caches", None)
+            if clear is not None:
+                clear()
+        gc.collect()

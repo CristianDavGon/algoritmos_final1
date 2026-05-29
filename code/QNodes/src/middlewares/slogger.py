@@ -9,6 +9,15 @@ from colorama import init, Fore, Style
 
 from src.constants.base import PATH_LOGS
 
+_COLORAMA_INITIALIZED = False
+
+
+def _init_colorama_once() -> None:
+    global _COLORAMA_INITIALIZED
+    if not _COLORAMA_INITIALIZED:
+        init(autoreset=True)
+        _COLORAMA_INITIALIZED = True
+
 
 class ColorFormatter(logging.Formatter):
     """Formatter personalizado para consola con colores usando colorama."""
@@ -24,7 +33,7 @@ class ColorFormatter(logging.Formatter):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        init(autoreset=True)  # Inicializa colorama
+        _init_colorama_once()
 
     def format(self, record: logging.LogRecord) -> str:
         color = self.COLORS.get(record.levelno, "")
@@ -85,6 +94,8 @@ class SafeLogger:
         logger.setLevel(logging.ERROR)
         # Importante: evita la propagación a loggers padre
         logger.propagate = False
+        for handler in logger.handlers:
+            handler.close()
         logger.handlers.clear()
 
         # Formatter para archivos (sin colores)
