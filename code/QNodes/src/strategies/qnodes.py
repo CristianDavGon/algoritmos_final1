@@ -51,12 +51,12 @@ def oracle(
         # mean_A: dims en mask_a libres, resto fijo en pivot
         slc_a = tuple(
             [slice(None)]
-            + [slice(None) if (mask_a >> d) & 1 else pivot_idx[d] for d in range(D)]
+            + [slice(None) if (mask_a >> (D - 1 - d)) & 1 else pivot_idx[D - 1 - d] for d in range(D)]
         )
         # mean_B: dims en mask_b libres, resto fijo en pivot
         slc_b = tuple(
             [slice(None)]
-            + [slice(None) if (mask_b >> d) & 1 else pivot_idx[d] for d in range(D)]
+            + [slice(None) if (mask_b >> (D - 1 - d)) & 1 else pivot_idx[D - 1 - d] for d in range(D)]
         )
         mean_a = data_nd[tuple(slc_a)].reshape(N, -1).mean(axis=1)
         mean_b = data_nd[tuple(slc_b)].reshape(N, -1).mean(axis=1)
@@ -157,7 +157,7 @@ class QNodes(SIA):
 
         data_nd = np.stack([c.data for c in sistema.ncubos])
         pivot_idx = tuple(int(sistema.estado_inicial[dim]) for dim in sistema.dims_ncubos)
-        pivot_vals = data_nd[(slice(None),) + pivot_idx]  # shape (N,)
+        pivot_vals = data_nd[(slice(None),) + pivot_idx[::-1]]  # shape (N,)
 
         # Baseline de concentración
         all_mean = data_nd.reshape(N, -1).mean(axis=1)

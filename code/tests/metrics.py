@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Optional
 
 from tests.models import BenchmarkReport, PartitionResult, RunRecord, TestCase
@@ -63,25 +64,45 @@ def _particiones_iguales(p1: str, p2: str) -> bool:
 
 
 def _canonical_partition(text: str) -> frozenset[frozenset[str]]:
-    """Convert a partition string to a canonical frozenset-of-frozensets.
+    # QNodes format: ⎛purv0⎞⎛purv1⎞ / ⎝mec0⎠⎝mec1⎠
+    if '⎛' in text:
+        tops = re.findall(r'⎛([^⎞]*)⎞', text)
+        bottoms = re.findall(r'⎝([^⎠]*)⎠', text)
+        if len(tops) < 2 or len(bottoms) < 2:
+            return frozenset()
+        parts = []
+        for i in range(2):
+            purv = frozenset(
+                e.strip().lower()
+                for e in tops[i].split(',')
+                if e.strip() and e.strip() != '∅'
+            )
+            mech = frozenset(
+                e.strip().lower()
+                for e in bottoms[i].split(',')
+                if e.strip() and e.strip() != '∅'
+            )
+            parts.append(frozenset({purv, mech}))
+        return frozenset(parts)
+    # PyPhi format: row0 = | purv_L || purv_R |, row1 = | mec_L || mec_R |
+    lines = [ln.strip() for ln in text.strip().splitlines() if '||' in ln]
+    if len(lines) < 2:
+        return frozenset()
 
-    Each line of the partition has the form ``| PART_A || PART_B |``.
-    Elements inside each part are comma-separated. Returns a frozenset of
-    (frozenset_A, frozenset_B) pairs — one per line — so order within and
-    between the two sides is irrelevant.
-    """
-    lines = [ln.strip() for ln in text.strip().splitlines() if "||" in ln]
-    rows: list[frozenset[frozenset[str]]] = []
-    for line in lines:
-        # Remove outer pipes and split on ||
-        clean = line.strip("|").strip()
-        halves = clean.split("||")
+    def _parse_row(line):
+        clean = line.strip('|').strip()
+        halves = clean.split('||')
         if len(halves) != 2:
-            continue
-        left = frozenset(e.strip().lower() for e in halves[0].split(",") if e.strip())
-        right = frozenset(e.strip().lower() for e in halves[1].split(",") if e.strip())
-        rows.append(frozenset({left, right}))
-    return frozenset(rows)
+            return None, None
+        left = frozenset(e.strip().lower() for e in halves[0].split(',') if e.strip() and e.strip() != '∅')
+        right = frozenset(e.strip().lower() for e in halves[1].split(',') if e.strip() and e.strip() != '∅')
+        return left, right
+
+    purv_l, purv_r = _parse_row(lines[0])
+    mech_l, mech_r = _parse_row(lines[1])
+    if purv_l is None or mech_l is None:
+        return frozenset()
+    return frozenset({frozenset({purv_l, mech_l}), frozenset({purv_r, mech_r})})
 
 
 def agregar_reporte(
