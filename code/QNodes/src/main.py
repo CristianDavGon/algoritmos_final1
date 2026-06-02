@@ -104,7 +104,7 @@ def iniciar():
     """Punto de entrada principal: procesa DatosPruebas2026_1.xlsx con N15B."""
     project_root = Path(__file__).resolve().parents[2]
     ruta_excel = project_root / "data" / "DatosPruebas2026_1.xlsx"
-    estado_inicio = "1" + "0" * 14
+    estado_inicio = "1" + "0" * 21
     n = len(estado_inicio)
     ruta_salida = RESULTS_DIR / f"resultados_N{n}B.csv"
 

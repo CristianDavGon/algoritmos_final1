@@ -48,7 +48,7 @@ def _leer_pruebas_excel(ruta_excel: Path, n: int) -> list[tuple[str, str]]:
 
 
 def resolver_tpm_path(estado_inicio: str) -> Path:
-    sample_name = f"N{len(estado_inicio)}B.csv"
+    sample_name = f"N{len(estado_inicio)}A.csv"
     candidates = (
         METHOD2_ROOT / "src" / ".samples" / sample_name,
         METHOD2_ROOT / ".samples" / sample_name,
@@ -135,7 +135,7 @@ def iniciar():
             str(PROJECT_ROOT / "data" / "DatosPruebas2026_1.xlsx"),
         )
     )
-    estado_inicio = os.getenv("GEOMIP_ESTADO_INICIO", "1" + "0" * 14)
+    estado_inicio = os.getenv("GEOMIP_ESTADO_INICIO", "1" + "0" * 19)
     n = len(estado_inicio)
 
     ruta_salida_default = str(RESULTS_DIR / f"resultados_N{n}B.csv")

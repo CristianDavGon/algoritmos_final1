@@ -114,6 +114,14 @@ pyphi.log
 **/.archive/
 
 # ============================================================
+# Large samples (22 and 25 nodes — too heavy for remote)
+# ============================================================
+code/GeoMIP/data/samples/N22A.csv
+code/GeoMIP/data/samples/N25A.csv
+code/QNodes/src/.samples/N22A.csv
+code/QNodes/src/.samples/N25A.csv
+
+# ============================================================
 # Google Drive / cloud sync
 # ============================================================
 .tmp.driveupload/
