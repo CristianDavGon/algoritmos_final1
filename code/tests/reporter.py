@@ -7,18 +7,36 @@ from typing import Optional
 
 from tests.models import BenchmarkReport, RunRecord
 
-_RESULTS_DIR = Path(__file__).parent / "results"
+_RESULTS_ROOT = Path(__file__).parent / "results"
+
+_STRATEGY_SUBDIR: dict[str, str] = {
+    "qnodes": "qnodes",
+    "geometric": "geomip",
+}
+
+
+def _results_dir(strategy_name: str) -> Path:
+    subdir = _STRATEGY_SUBDIR.get(strategy_name.lower(), strategy_name.lower())
+    return _RESULTS_ROOT / subdir
 
 
 def _base_stem(report: BenchmarkReport) -> str:
     date_str = datetime.now().strftime("%Y-%m-%d")
-    return f"N{report.n_nodes}{report.tpm_page}_{report.strategy_name.lower()}_vs_pyphi_{date_str}"
+    estado = report.estado_inicial
+    page = report.tpm_page
+    return (
+        f"N{report.n_nodes}{page}"
+        f"_estado{estado}"
+        f"_sample{page}"
+        f"_{report.strategy_name.lower()}_vs_pyphi_{date_str}"
+    )
 
 
 def guardar_csv(report: BenchmarkReport) -> Path:
-    """Write benchmark results to a dated CSV file in tests/results/."""
-    _RESULTS_DIR.mkdir(parents=True, exist_ok=True)
-    path = _RESULTS_DIR / f"{_base_stem(report)}.csv"
+    """Write benchmark results to a dated CSV file in tests/results/<algo>/."""
+    out_dir = _results_dir(report.strategy_name)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    path = out_dir / f"{_base_stem(report)}.csv"
     fieldnames = [
         "Prueba", "Alcance", "Mecanismo",
         "phi_Pyphi", "phi_Candidato", "delta_phi", "error_relativo_pct", "phi_match",
@@ -53,9 +71,10 @@ def guardar_csv(report: BenchmarkReport) -> Path:
 
 
 def guardar_markdown(report: BenchmarkReport) -> Path:
-    """Write a detailed per-case Markdown comparison report in tests/results/."""
-    _RESULTS_DIR.mkdir(parents=True, exist_ok=True)
-    path = _RESULTS_DIR / f"{_base_stem(report)}.md"
+    """Write a detailed per-case Markdown comparison report in tests/results/<algo>/."""
+    out_dir = _results_dir(report.strategy_name)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    path = out_dir / f"{_base_stem(report)}.md"
 
     red = f"N{report.n_nodes}{report.tpm_page}"
     lines: list[str] = []

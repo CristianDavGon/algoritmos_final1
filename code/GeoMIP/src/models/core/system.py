@@ -1,5 +1,6 @@
 import numpy as np
 from numpy.typing import NDArray
+from functools import cached_property
 
 from src.funcs.base import reindexar, seleccionar_subestado
 from src.models.enums.notation import Notation
@@ -41,7 +42,7 @@ class System:
             for i in range(n_nodes)
         )
 
-    @property
+    @cached_property
     def indices_ncubos(self):
         """
         La TPM tiene asociados una cantidad n-ésima de n-cubos, es por esto que es necesario tenerlos indexados puesto representa el comportamiento de un nodo en todos sus posibles estados dentro de un espacio de probabilidad determinista o estocástica.

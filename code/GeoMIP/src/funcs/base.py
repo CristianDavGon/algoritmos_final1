@@ -95,13 +95,9 @@ def reindexar(N: int):
 
 
 def seleccionar_subestado(subestado):
-    # posible in-deducción por acceso inverso
-    notaciones = {
-        Notation.BIG_ENDIAN.value: subestado,
-        Notation.LIL_ENDIAN.value: subestado[::-1],
-        # ...otras
-    }
-    return notaciones[aplicacion.notacion]
+    if aplicacion.notacion == Notation.LIL_ENDIAN.value:
+        return subestado[::-1]
+    return subestado
 
 
 def lil_endian(n: int) -> np.ndarray:

@@ -8,7 +8,7 @@ from src.controllers.manager import Manager
 from src.strategies.qnodes import QNodes
 
 
-RESULTS_DIR = Path(__file__).resolve().parents[1] / "results"
+RESULTS_DIR = Path(__file__).resolve().parents[1] / "results" / "qnodes"
 
 
 _N_A_SHEET: dict[int, int] = {5: 1, 8: 2, 10: 3, 15: 4, 20: 5, 22: 6, 25: 7}

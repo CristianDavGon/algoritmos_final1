@@ -74,6 +74,11 @@ class SafeLogger:
 
     def __setup_logger(self, name: str) -> logging.Logger:
         """Configura el logger con manejo de encodings y formateo personalizado."""
+        logger = logging.getLogger(name)
+        # Si el logger ya fue configurado, reutilizarlo sin crear directorios ni handlers nuevos
+        if logger.handlers:
+            return logger
+
         # Crear estructura de directorios para logs detallados
         base_log_dir = Path(LOGS_PATH)
         base_log_dir.mkdir(exist_ok=True)
@@ -90,13 +95,9 @@ class SafeLogger:
         # Archivo para el último log
         last_log_file = base_log_dir / f"last_{name}.log"
 
-        logger = logging.getLogger(name)
         logger.setLevel(logging.ERROR)
         # Importante: evita la propagación a loggers padre
         logger.propagate = False
-        for handler in logger.handlers:
-            handler.close()
-        logger.handlers.clear()
 
         # Formatter para archivos (sin colores)
         plain_formatter = logging.Formatter(

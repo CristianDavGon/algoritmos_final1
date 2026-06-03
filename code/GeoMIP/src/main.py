@@ -16,7 +16,7 @@ from pathlib import Path
 METHOD2_ROOT = Path(__file__).resolve().parents[1]
 GEOMIP_ROOT = Path(__file__).resolve().parents[1]
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-RESULTS_DIR = GEOMIP_ROOT / "results"
+RESULTS_DIR = GEOMIP_ROOT / "results" / "geomip"
 
 _N_A_SHEET: dict[int, int] = {5: 1, 8: 2, 10: 3, 15: 4, 20: 5, 22: 6, 25: 7}
 
@@ -62,17 +62,28 @@ def resolver_tpm_path(estado_inicio: str) -> Path:
     )
 
 
-def ejecutar_con_tiempo(config_sistema, condiciones, alcance, mecanismo, resultado_queue, tpm):
+_worker_tpm = None
+
+
+def _init_worker(tpm):
+    """Initializer: stores the TPM in the worker process once to avoid re-pickling."""
+    global _worker_tpm
+    _worker_tpm = tpm
+
+
+def _ejecutar_caso(config_sistema, condiciones, alcance, mecanismo):
+    """Worker reutilizable por el pool — retorna el resultado directamente."""
     try:
         analizador_fi = GeometricSIA(config_sistema)
-        sia_dos = analizador_fi.aplicar_estrategia(condiciones, alcance, mecanismo, tpm)
-        resultado_queue.put({
+        sia_dos = analizador_fi.aplicar_estrategia(condiciones, alcance, mecanismo, _worker_tpm)
+        return {
             "particion": sia_dos.particion,
             "perdida": sia_dos.perdida,
             "tiempo": sia_dos.tiempo_ejecucion,
-        })
-    except Exception as e:
-        resultado_queue.put({"particion": None, "perdida": None, "tiempo": None})
+        }
+    except Exception:
+        return {"particion": None, "perdida": None, "tiempo": None}
+
 
 def ejecutar_desde_excel(
     ruta_excel: Path,
@@ -87,41 +98,41 @@ def ejecutar_desde_excel(
     tpm_path = resolver_tpm_path(estado_inicio)
     tpm = np.genfromtxt(tpm_path, delimiter=",")
 
-    for i, (letras_alcance, letras_mecanismo) in enumerate(pruebas, start=1):
-        alcance = _letras_a_binario(letras_alcance, n)
-        mecanismo = _letras_a_binario(letras_mecanismo, n)
-        print(f"Prueba {i:>3} — Alcance: {letras_alcance:<10} Mecanismo: {letras_mecanismo}")
+    # Un único worker reutilizado entre pruebas; solo se reinicia si hay timeout.
+    # La TPM se pasa al worker UNA sola vez via initializer para evitar serialización
+    # por pipe en cada tarea (falla en Windows con N grandes por desbordamiento del buffer).
+    pool = multiprocessing.Pool(processes=1, initializer=_init_worker, initargs=(tpm,))
+    try:
+        for i, (letras_alcance, letras_mecanismo) in enumerate(pruebas, start=1):
+            alcance = _letras_a_binario(letras_alcance, n)
+            mecanismo = _letras_a_binario(letras_mecanismo, n)
+            print(f"Prueba {i:>3} — Alcance: {letras_alcance:<10} Mecanismo: {letras_mecanismo}")
 
-        config_sistema = Manager(estado_inicial=estado_inicio)
+            config_sistema = Manager(estado_inicial=estado_inicio)
+            async_result = pool.apply_async(_ejecutar_caso, (config_sistema, condiciones, alcance, mecanismo))
 
-        resultado_queue = multiprocessing.Queue()
-        proceso = multiprocessing.Process(
-            target=ejecutar_con_tiempo,
-            args=(config_sistema, condiciones, alcance, mecanismo, resultado_queue, tpm),
-        )
-        proceso.start()
-        proceso.join(timeout=3600)
+            try:
+                resultado = async_result.get(timeout=3600)
+            except multiprocessing.TimeoutError:
+                print(f"  Tiempo límite alcanzado en prueba {i}.")
+                pool.terminate()
+                pool.join()
+                pool = multiprocessing.Pool(processes=1, initializer=_init_worker, initargs=(tpm,))
+                resultado = {"particion": None, "perdida": None, "tiempo": None}
+            except Exception:
+                resultado = {"particion": None, "perdida": None, "tiempo": None}
 
-        if proceso.is_alive():
-            print(f"  Tiempo límite alcanzado en prueba {i}.")
-            proceso.terminate()
-            proceso.join()
-            resultado = {"particion": None, "perdida": None, "tiempo": None}
-        else:
-            resultado = (
-                resultado_queue.get()
-                if not resultado_queue.empty()
-                else {"particion": None, "perdida": None, "tiempo": None}
-            )
-
-        resultados.append({
-            "Prueba": i,
-            "Alcance": letras_alcance,
-            "Mecanismo": letras_mecanismo,
-            "Partición": resultado["particion"],
-            "Pérdida (φ)": resultado["perdida"],
-            "Tiempo (s)": resultado["tiempo"],
-        })
+            resultados.append({
+                "Prueba": i,
+                "Alcance": letras_alcance,
+                "Mecanismo": letras_mecanismo,
+                "Partición": resultado["particion"],
+                "Pérdida (φ)": resultado["perdida"],
+                "Tiempo (s)": resultado["tiempo"],
+            })
+    finally:
+        pool.terminate()
+        pool.join()
 
     df_resultados = pd.DataFrame(resultados)
     ruta_salida.parent.mkdir(parents=True, exist_ok=True)
@@ -135,10 +146,10 @@ def iniciar():
             str(PROJECT_ROOT / "data" / "DatosPruebas2026_1.xlsx"),
         )
     )
-    estado_inicio = os.getenv("GEOMIP_ESTADO_INICIO", "1" + "0" * 19)
+    estado_inicio = os.getenv("GEOMIP_ESTADO_INICIO", "1" + "0" * 24)
     n = len(estado_inicio)
 
-    ruta_salida_default = str(RESULTS_DIR / f"resultados_N{n}B.csv")
+    ruta_salida_default = str(RESULTS_DIR / f"resultados_N{n}A.csv")
     ruta_salida = Path(os.getenv("GEOMIP_OUTPUT_CSV", ruta_salida_default))
 
     ejecutar_desde_excel(ruta_entrada, ruta_salida, estado_inicio=estado_inicio)
