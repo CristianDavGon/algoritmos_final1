@@ -1,4 +1,4 @@
-# SDD-0 — Decisions: Fase 1
+# SDD-1 — Decisions: Fase 1
 
 Decisiones que deben resolverse durante esta fase para desbloquear la implementación de k-particiones.
 
@@ -16,10 +16,10 @@ Decisiones que deben resolverse durante esta fase para desbloquear la implementa
 
 **Impacto**: Define el contrato de retorno de `KQNodes.aplicar_estrategia()` y `KGeoMIP.aplicar_estrategia()`.
 
-**Estado**: ⛔ Esperando respuesta del usuario
+**Estado**: ✅ Decidido
 
-**Respuesta del usuario**:
-> _[pendiente]_
+**Respuesta**:
+> **Opción D — Mínima corte**: φ(k) se define como la EMD mínima encontrada al aplicar el algoritmo sobre la k-partición resultante — el mismo principio que k=2 pero aplicado iterativamente sobre el subconjunto restante en cada paso. Esto preserva la interpretación original de φ (la "menor pérdida posible al cortar el sistema"), hace que KQNodes(k=2) sea idéntico a QNodes como test de regresión, y encaja directamente con la estrategia iterativa elegida en DB-02.
 
 ---
 
@@ -33,10 +33,10 @@ Decisiones que deben resolverse durante esta fase para desbloquear la implementa
 
 **Impacto**: Define la estructura del bucle principal de `KQNodes.aplicar_estrategia()` y la complejidad resultante (A → O(k·D³), B → O(D³·k^?) ).
 
-**Estado**: ⛔ Esperando respuesta del usuario
+**Estado**: ✅ Decidido
 
-**Respuesta del usuario**:
-> _[pendiente]_
+**Respuesta**:
+> **Opción A — Iterativa con re-fusión (greedy k-way)**: se aplica el MAO k-1 veces. En cada iteración, `qnodes(D, f, full_mask)` obtiene la mejor bipartición `(A, B_rest)`; el subconjunto `B_rest` pasa a ser el input de la siguiente iteración. La complejidad total es O(k·D³), predecible y validable. La opción B requeriría reformular la submodularidad para k partes simultáneas — matemáticamente incierto y sin implementación de referencia disponible. La opción A tiene precedente en la literatura (Gomory-Hu) y es directamente extensible desde el código existente en `qnodes.py`.
 
 ---
 
@@ -53,10 +53,10 @@ Decisiones que deben resolverse durante esta fase para desbloquear la implementa
 
 **Impacto**: Define los tests de `code/KQNodes/tests/` y `code/KGeoMIP/tests/`.
 
-**Estado**: ⛔ Esperando respuesta del usuario
+**Estado**: ✅ Decidido
 
-**Respuesta del usuario**:
-> _[pendiente]_
+**Respuesta**:
+> **Opción C — Ambas**: BruteForce exhaustivo para n≤6 y consistencia interna (`φ(k+1) ≤ φ(k)`) para n>6. El BruteForce para sistemas pequeños da la certeza matemática de que el algoritmo encuentra el óptimo real; la consistencia interna es la única garantía práctica para n>6 donde el BruteForce es computacionalmente inviable. Ya existe infraestructura de BruteForce en `code/GeoMIP/src/controllers/strategies/force.py` y en `code/QNodes/src/strategies/force.py` que se puede extender a k particiones.
 
 ---
 
@@ -73,10 +73,10 @@ Decisiones que deben resolverse durante esta fase para desbloquear la implementa
 
 **Impacto**: Define `KGeoMIP.identificar_particiones_optimas()` y su complejidad para k>2.
 
-**Estado**: ⛔ Esperando respuesta del usuario
+**Estado**: ✅ Decidido
 
-**Respuesta del usuario**:
-> _[pendiente]_
+**Respuesta**:
+> **Opción A — Partición jerárquica de N-Cubos**: se extiende el método geométrico actual aplicando los k-1 mejores cortes de forma recursiva sobre el hipercubo. Es la extensión natural de `identificar_particiones_optimas()` que ya trabaja con la geometría del hipercubo; mantiene la coherencia con la lógica de `tabla_transiciones` y `calcular_costos_nivel()`. La opción B (clustering) introduce dependencia externa (sklearn) y rompe la filosofía geométrica del proyecto. La opción C es computacionalmente viable solo para n≤8 y tiene peor escalabilidad que A para k>3.
 
 ---
 

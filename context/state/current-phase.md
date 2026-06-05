@@ -1,9 +1,10 @@
 # Fase Actual
 
 **Fase**: Fase 1 — Comprensión profunda del proyecto
-**Estado**: 🟡 EN CURSO
+**Estado**: ✅ COMPLETADA
 **Inicio**: 2026-05-27
-**SDD asociado**: `context/SDD-0/`
+**Cierre**: 2026-06-05
+**SDD asociado**: `context/SDD-1/`
 
 ## Objetivo
 

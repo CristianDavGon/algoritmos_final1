@@ -112,7 +112,7 @@ algoritmos_final1/
 │   │   ├── decisions.md
 │   │   └── risks.md
 │   ├── handoffs/                      # Memoria temporal entre fases/agentes
-│   ├── SDD-0/                         # Documentación de feature/módulo 0
+│   ├── SDD-1/                         # Documentación de la Fase 1
 │   │   ├── planning.md
 │   │   ├── implementation.md
 │   │   ├── decisions.md

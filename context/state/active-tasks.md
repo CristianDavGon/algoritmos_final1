@@ -5,14 +5,14 @@
 ### 1.1 — Trazar flujo GeoMIP [EN CURSO]
 **Objetivo**: Leer `code/GeoMIP/exec.py` → `src/main.py` → `GeometricSIA.aplicar_estrategia()` y documentar el flujo con contratos reales.
 
-**Entregable**: Sección en `context/SDD-0/implementation.md` con el flujo de ejecución anotado.
+**Entregable**: Sección en `context/SDD-1/implementation.md` con el flujo de ejecución anotado.
 
 ---
 
 ### 1.2 — Trazar flujo QNodes [PENDIENTE]
 **Objetivo**: Leer `code/QNodes/exec.py` → `src/main.py` → `QNodes.aplicar_estrategia()` y documentar diferencias con GeoMIP.
 
-**Entregable**: Sección en `context/SDD-0/implementation.md` con comparativo GeoMIP vs QNodes.
+**Entregable**: Sección en `context/SDD-1/implementation.md` con comparativo GeoMIP vs QNodes.
 
 ---
 
@@ -32,7 +32,7 @@
 ### 1.4 — Identificar diferencias reales GeoMIP vs QNodes [PENDIENTE]
 **Objetivo**: Más allá de lo documentado en `architecture.md`, encontrar diferencias en el código real: nombres, comportamientos, acoplamiento, etc.
 
-**Entregable**: Tabla actualizada en `context/SDD-0/implementation.md`.
+**Entregable**: Tabla actualizada en `context/SDD-1/implementation.md`.
 
 ---
 
@@ -44,7 +44,7 @@
 ---
 
 ### 1.6 — Documentar decisiones bloqueantes [PENDIENTE]
-**Objetivo**: Registrar formalmente las 4 decisiones bloqueantes de `context/project/decisions.md` en el SDD-0 y escalar al usuario para resolución.
+**Objetivo**: Registrar formalmente las 4 decisiones bloqueantes de `context/project/decisions.md` en el SDD-1 y escalar al usuario para resolución.
 
 ---
 
@@ -63,7 +63,7 @@ Archivos a leer en orden:
 ---
 
 ### U.2 — Responder preguntas de comprensión [PENDIENTE]
-Ver `context/SDD-0/testing.md` — son 10 preguntas de trazado de flujo.
+Ver `context/SDD-1/testing.md` — son 10 preguntas de trazado de flujo.
 
 ---
 
@@ -77,4 +77,4 @@ Observar: ¿qué se imprime?, ¿qué CSV se genera?, ¿cuánto tarda?
 ---
 
 ### U.4 — Confirmar decisiones bloqueantes [PENDIENTE]
-Ver `context/SDD-0/decisions.md` — hay 4 preguntas que requieren tu decisión antes de empezar Fase 4 (KQNodes).
+Ver `context/SDD-1/decisions.md` — hay 4 preguntas que requieren tu decisión antes de empezar Fase 4 (KQNodes).
