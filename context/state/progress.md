@@ -1,6 +1,6 @@
 # Progreso — Fase 2: Validación del funcionamiento
 
-Última actualización: 2026-06-05
+Última actualización: 2026-06-05 (Fase 2 cerrada)
 
 ## Tablero de tareas
 
@@ -8,9 +8,9 @@
 |----|-------|-------------|--------|
 | 2.1 | Ejecutar GeoMIP n=5 y n=8; verificar CSV | IA | ✅ COMPLETADA |
 | 2.2 | Ejecutar QNodes n=5 y n=8; verificar CSV | IA | ✅ COMPLETADA |
-| 2.3 | Comparar GeoMIP vs QNodes vs BruteForce para n≤6 | IA | 🔴 PENDIENTE |
-| 2.5 | Confirmar profiling HTML | IA | 🔴 PENDIENTE |
-| 2.6 | Documentar discrepancias en `known-issues.md` | IA | 🟡 EN CURSO |
+| 2.3 | Comparar GeoMIP vs QNodes vs BruteForce para n≤6 | IA | ✅ COMPLETADA |
+| 2.5 | Confirmar profiling HTML | IA | ✅ COMPLETADA |
+| 2.6 | Documentar discrepancias en `known-issues.md` | IA | ✅ COMPLETADA |
 | 2.7 | Fix bug QNodes: inversión de ejes en oracle y parser de particiones | IA | ✅ COMPLETADA |
 | 2.8 | Optimización de GeoMIP (ajuste basado en documento previo) | IA | ✅ COMPLETADA |
 | 2.9 | Ejecuciones extendidas n ∈ {10, 15, 20, 22} | IA | ✅ COMPLETADA |
@@ -48,3 +48,8 @@
 - 🟡 EN CURSO
 - 🔴 PENDIENTE
 - ⛔ BLOQUEADA
+
+## Estado de cierre
+
+**Completado**: 2026-06-05  
+Todas las tareas de Fase 2 completadas. Ver `context/handoffs/01.md` para el resumen de entrega y `context/SDD-2/` para la documentación técnica de la fase.

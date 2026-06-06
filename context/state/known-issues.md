@@ -1,6 +1,6 @@
-# Known Issues — Fase 1
+# Known Issues
 
-Última actualización: 2026-06-05 (tarea 2.6 completada — known-issues cerrado)
+Última actualización: 2026-06-05 (Fase 2 cerrada — DT-10 corregido, DT-11 documentado)
 
 > Este archivo se actualiza durante la Fase 1 a medida que se identifican problemas.
 > En Fase 2 (Validación) se agregarán discrepancias de resultados.

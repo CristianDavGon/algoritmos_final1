@@ -1,9 +1,10 @@
 # Fase Actual
 
 **Fase**: Fase 2 — Validación del funcionamiento
-**Estado**: 🟡 EN CURSO
+**Estado**: ✅ COMPLETADA
 **Inicio**: 2026-06-05
-**SDD asociado**: ninguno por ahora (se creará SDD-2 al cerrar la fase)
+**Cierre**: 2026-06-05
+**SDD asociado**: `context/SDD-2/`
 
 ## Objetivo
 
@@ -14,10 +15,10 @@ Verificar que GeoMIP y QNodes producen resultados correctos antes de extender a 
 | Criterio | Estado |
 |----------|--------|
 | Ambas estrategias ejecutan sin errores para n ∈ {5, 8} | ✅ Cumplido |
-| Al menos un caso n=5 validado contra BruteForce (`\|φ_nuevo - φ_ref\| < 1e-9`) | 🔴 Pendiente — comparación BruteForce no realizada aún |
-| CSV de resultados verificados y coherentes | 🟡 Parcial — GeoMIP N8A con φ=0.0 en todos los casos (sospechoso); QNodes N8A y N15A vacíos (legacy pre-fix DT-10) |
-| Comparación GeoMIP vs QNodes vs BruteForce para n≤6 | 🔴 Sin evidencia de archivo de comparación explícito |
-| Profiling HTML generado correctamente | 🔴 Sin confirmar |
+| Al menos un caso n=5 validado contra BruteForce (`\|φ_nuevo - φ_ref\| < 1e-9`) | ✅ Cumplido — exactitud 100%, Δφ=0.000000 para n ∈ {5, 8} |
+| CSV de resultados verificados y coherentes | ✅ Cumplido — GeoMIP N8A φ=0 confirmado como correcto |
+| Comparación GeoMIP vs QNodes vs BruteForce para n≤6 | ✅ Cumplido — resultados en `code/tests/results/` |
+| Profiling HTML generado correctamente | ✅ Cumplido — 214 KB, 870 entradas en `GeoMIP/review/profiling/` |
 
 ## Siguiente fase
 

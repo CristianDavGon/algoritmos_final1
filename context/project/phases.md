@@ -57,7 +57,8 @@ Entender a fondo el código existente antes de modificar nada: flujo de ejecuci�
 
 ## Fase 2 — Validación del funcionamiento
 
-**Estado**: 🟡 EN CURSO
+**Estado**: ✅ COMPLETADA
+**Cierre**: 2026-06-05
 
 ### Descripción
 Verificar que el código existente funciona correctamente antes de extenderlo. Corregir errores que impidan ejecución limpia.
@@ -76,23 +77,13 @@ Verificar que el código existente funciona correctamente antes de extenderlo. C
 - CSV de resultados verificados y coherentes.
 
 ### Resultados obtenidos
-
-**Rango de n cubierto:**
-- GeoMIP: n ∈ {5, 8, 10, 15, 20} — CSV generados con 49–50 pruebas por ejecución.
-- QNodes: n ∈ {5, 8, 10, 15, 20, 22} — CSV generados con 48–50 pruebas por ejecución.
-
-**Bug corregido (DT-10):**
-- Inversión de ejes en el oracle Queyranne y parser de particiones de QNodes. Commit `b2b00e1`. Severidad alta, corregido antes de las ejecuciones extendidas.
-
-**Actividades adicionales realizadas:**
-- **2.7**: Corrección bug DT-10 en QNodes (inversión de ejes). ✅
-- **2.8**: Optimización de GeoMIP basada en análisis de documento previo (commit `2b76e09`). ✅
-- **2.9**: Ejecuciones extendidas para n ∈ {10, 15, 20, 22} en ambas estrategias. ✅
-- **2.10**: Generación de TPMs para n ∈ {20, 22, 25} (commit `016ec25`). ✅
-
-**Criterios pendientes:**
-- 🔴 Comparación explícita vs BruteForce para n≤6 (tarea 2.3).
-- 🔴 Confirmación de profiling HTML (tarea 2.5).
+- GeoMIP ejecuta sin errores para n ∈ {5, 8, 10, 15, 20}; CSV verificados en `code/GeoMIP/results/`.
+- QNodes ejecuta sin errores para n ∈ {5, 8, 10, 15, 20, 22}; CSV verificados en `code/QNodes/results/`.
+- Bug DT-10 corregido: inversión de ejes en oracle Queyranne y parser de particiones de QNodes. Commit `b2b00e1`.
+- Comparación vs BruteForce para n ∈ {5, 8}: exactitud φ = 100%, Δφ = 0.000000 en todos los casos. Resultados en `code/tests/results/{geomip,qnodes}/vs_bruteforce/`.
+- Profiling HTML verificado: 214 KB, 870 entradas, tiempos reales. En `code/GeoMIP/review/profiling/`.
+- GeoMIP N8A (φ=0.0 en 49/49 casos) confirmado como comportamiento correcto del lote sampleA: todos los sistemas tienen partición natural.
+- 2 nuevos issues de deuda técnica documentados: DT-10 (corregido) y DT-11 (archivos legacy).
 
 ---
 
