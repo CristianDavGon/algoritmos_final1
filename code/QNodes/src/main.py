@@ -101,11 +101,11 @@ def ejecutar_desde_excel(
 
 
 def iniciar():
-    """Punto de entrada principal: procesa DatosPruebas2026_1.xlsx con N15B."""
+    """Punto de entrada principal: procesa DatosPruebas2026_1.xlsx."""
     project_root = Path(__file__).resolve().parents[2]
     ruta_excel = project_root / "data" / "DatosPruebas2026_1.xlsx"
-    estado_inicio = "1" + "0" * 21
+    estado_inicio = "1" + "0" * 19
     n = len(estado_inicio)
-    ruta_salida = RESULTS_DIR / f"resultados_N{n}B.csv"
+    ruta_salida = RESULTS_DIR / f"resultados_N{n}A.csv"
 
     ejecutar_desde_excel(ruta_excel, ruta_salida, estado_inicio)

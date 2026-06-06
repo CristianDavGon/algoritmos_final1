@@ -48,7 +48,7 @@ class SIA(ABC):
 
     def sia_cargar_tpm(self) -> np.ndarray:
         """Carga TPM desde archivo"""
-        return np.genfromtxt(
+        return np.loadtxt(
             self.sia_gestor.tpm_filename,
             delimiter=COLON_DELIM,
         )
@@ -93,7 +93,9 @@ class SIA(ABC):
         )
 
         # Formación de datos con logs opcionales de ejemplificación
-        completo = System(tpm, estado_inicial)
+        if not hasattr(self, '_sistema_completo'):
+            self._sistema_completo = System(tpm, estado_inicial)
+        completo = self._sistema_completo
         self.sia_logger.debug("Original creado.")
         self.sia_logger.debug("Original:")
 

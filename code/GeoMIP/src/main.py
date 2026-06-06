@@ -63,19 +63,20 @@ def resolver_tpm_path(estado_inicio: str) -> Path:
 
 
 _worker_tpm = None
+_worker_analizador = None
 
 
-def _init_worker(tpm):
-    """Initializer: stores the TPM in the worker process once to avoid re-pickling."""
-    global _worker_tpm
+def _init_worker(tpm, estado_inicio):
+    """Initializer: crea TPM y GeometricSIA una sola vez en el worker para evitar overhead de pickling."""
+    global _worker_tpm, _worker_analizador
     _worker_tpm = tpm
+    _worker_analizador = GeometricSIA(Manager(estado_inicial=estado_inicio))
 
 
-def _ejecutar_caso(config_sistema, condiciones, alcance, mecanismo):
+def _ejecutar_caso(condiciones, alcance, mecanismo):
     """Worker reutilizable por el pool — retorna el resultado directamente."""
     try:
-        analizador_fi = GeometricSIA(config_sistema)
-        sia_dos = analizador_fi.aplicar_estrategia(condiciones, alcance, mecanismo, _worker_tpm)
+        sia_dos = _worker_analizador.aplicar_estrategia(condiciones, alcance, mecanismo, _worker_tpm)
         return {
             "particion": sia_dos.particion,
             "perdida": sia_dos.perdida,
@@ -96,32 +97,24 @@ def ejecutar_desde_excel(
     resultados = []
 
     tpm_path = resolver_tpm_path(estado_inicio)
-    tpm = np.genfromtxt(tpm_path, delimiter=",")
+    tpm = np.loadtxt(tpm_path, delimiter=",")
 
-    # Un único worker reutilizado entre pruebas; solo se reinicia si hay timeout.
-    # La TPM se pasa al worker UNA sola vez via initializer para evitar serialización
-    # por pipe en cada tarea (falla en Windows con N grandes por desbordamiento del buffer).
-    pool = multiprocessing.Pool(processes=1, initializer=_init_worker, initargs=(tpm,))
-    try:
+    if n <= 20:
+        # Ejecución directa sin Pool: elimina overhead de IPC y recreación de GeometricSIA por prueba.
+        analizador = GeometricSIA(Manager(estado_inicial=estado_inicio))
         for i, (letras_alcance, letras_mecanismo) in enumerate(pruebas, start=1):
             alcance = _letras_a_binario(letras_alcance, n)
             mecanismo = _letras_a_binario(letras_mecanismo, n)
             print(f"Prueba {i:>3} — Alcance: {letras_alcance:<10} Mecanismo: {letras_mecanismo}")
-
-            config_sistema = Manager(estado_inicial=estado_inicio)
-            async_result = pool.apply_async(_ejecutar_caso, (config_sistema, condiciones, alcance, mecanismo))
-
             try:
-                resultado = async_result.get(timeout=3600)
-            except multiprocessing.TimeoutError:
-                print(f"  Tiempo límite alcanzado en prueba {i}.")
-                pool.terminate()
-                pool.join()
-                pool = multiprocessing.Pool(processes=1, initializer=_init_worker, initargs=(tpm,))
-                resultado = {"particion": None, "perdida": None, "tiempo": None}
+                sia_dos = analizador.aplicar_estrategia(condiciones, alcance, mecanismo, tpm)
+                resultado = {
+                    "particion": sia_dos.particion,
+                    "perdida": sia_dos.perdida,
+                    "tiempo": sia_dos.tiempo_ejecucion,
+                }
             except Exception:
                 resultado = {"particion": None, "perdida": None, "tiempo": None}
-
             resultados.append({
                 "Prueba": i,
                 "Alcance": letras_alcance,
@@ -130,9 +123,36 @@ def ejecutar_desde_excel(
                 "Pérdida (φ)": resultado["perdida"],
                 "Tiempo (s)": resultado["tiempo"],
             })
-    finally:
-        pool.terminate()
-        pool.join()
+    else:
+        # Pool con timeout para n grandes; GeometricSIA creado una vez en el initializer.
+        pool = multiprocessing.Pool(processes=1, initializer=_init_worker, initargs=(tpm, estado_inicio))
+        try:
+            for i, (letras_alcance, letras_mecanismo) in enumerate(pruebas, start=1):
+                alcance = _letras_a_binario(letras_alcance, n)
+                mecanismo = _letras_a_binario(letras_mecanismo, n)
+                print(f"Prueba {i:>3} — Alcance: {letras_alcance:<10} Mecanismo: {letras_mecanismo}")
+                async_result = pool.apply_async(_ejecutar_caso, (condiciones, alcance, mecanismo))
+                try:
+                    resultado = async_result.get(timeout=3600)
+                except multiprocessing.TimeoutError:
+                    print(f"  Tiempo límite alcanzado en prueba {i}.")
+                    pool.terminate()
+                    pool.join()
+                    pool = multiprocessing.Pool(processes=1, initializer=_init_worker, initargs=(tpm, estado_inicio))
+                    resultado = {"particion": None, "perdida": None, "tiempo": None}
+                except Exception:
+                    resultado = {"particion": None, "perdida": None, "tiempo": None}
+                resultados.append({
+                    "Prueba": i,
+                    "Alcance": letras_alcance,
+                    "Mecanismo": letras_mecanismo,
+                    "Partición": resultado["particion"],
+                    "Pérdida (φ)": resultado["perdida"],
+                    "Tiempo (s)": resultado["tiempo"],
+                })
+        finally:
+            pool.terminate()
+            pool.join()
 
     df_resultados = pd.DataFrame(resultados)
     ruta_salida.parent.mkdir(parents=True, exist_ok=True)
@@ -146,7 +166,7 @@ def iniciar():
             str(PROJECT_ROOT / "data" / "DatosPruebas2026_1.xlsx"),
         )
     )
-    estado_inicio = os.getenv("GEOMIP_ESTADO_INICIO", "1" + "0" * 24)
+    estado_inicio = os.getenv("GEOMIP_ESTADO_INICIO", "1" + "0" * 19)
     n = len(estado_inicio)
 
     ruta_salida_default = str(RESULTS_DIR / f"resultados_N{n}A.csv")
