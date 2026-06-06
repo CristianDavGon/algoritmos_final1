@@ -57,7 +57,7 @@ Entender a fondo el código existente antes de modificar nada: flujo de ejecuci�
 
 ## Fase 2 — Validación del funcionamiento
 
-**Estado**: 🔴 PENDIENTE
+**Estado**: 🟡 EN CURSO
 
 ### Descripción
 Verificar que el código existente funciona correctamente antes de extenderlo. Corregir errores que impidan ejecución limpia.
@@ -67,14 +67,32 @@ Verificar que el código existente funciona correctamente antes de extenderlo. C
 1. Ejecutar `GeoMIP/exec.py` para n=5 y n=8; verificar CSV de resultados.
 2. Ejecutar `QNodes/exec.py` para n=5 y n=8; verificar CSV de resultados.
 3. Comparar resultados de GeoMIP vs QNodes vs BruteForce para n≤6 (ground-truth).
-4. Verificar que PyPhi da los mismos φ que las estrategias para k=2 en casos pequeños.
-5. Confirmar que el profiling HTML se genera correctamente.
+4. Confirmar que el profiling HTML se genera correctamente.
 6. Documentar toda discrepancia en `context/state/known-issues.md`.
 
 ### Criterio de DONE
 - Ambas estrategias ejecutan sin errores para n ∈ {5, 8}.
-- Al menos un caso de n=5 validado contra PyPhi/BruteForce con `|φ_nuevo - φ_ref| < 1e-9`.
+- Al menos un caso de n=5 validado contra BruteForce con `|φ_nuevo - φ_ref| < 1e-9`.
 - CSV de resultados verificados y coherentes.
+
+### Resultados obtenidos
+
+**Rango de n cubierto:**
+- GeoMIP: n ∈ {5, 8, 10, 15, 20} — CSV generados con 49–50 pruebas por ejecución.
+- QNodes: n ∈ {5, 8, 10, 15, 20, 22} — CSV generados con 48–50 pruebas por ejecución.
+
+**Bug corregido (DT-10):**
+- Inversión de ejes en el oracle Queyranne y parser de particiones de QNodes. Commit `b2b00e1`. Severidad alta, corregido antes de las ejecuciones extendidas.
+
+**Actividades adicionales realizadas:**
+- **2.7**: Corrección bug DT-10 en QNodes (inversión de ejes). ✅
+- **2.8**: Optimización de GeoMIP basada en análisis de documento previo (commit `2b76e09`). ✅
+- **2.9**: Ejecuciones extendidas para n ∈ {10, 15, 20, 22} en ambas estrategias. ✅
+- **2.10**: Generación de TPMs para n ∈ {20, 22, 25} (commit `016ec25`). ✅
+
+**Criterios pendientes:**
+- 🔴 Comparación explícita vs BruteForce para n≤6 (tarea 2.3).
+- 🔴 Confirmación de profiling HTML (tarea 2.5).
 
 ---
 

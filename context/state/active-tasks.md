@@ -1,29 +1,28 @@
-# Tareas Activas — Fase 1 (CERRADA)
+# Tareas Activas — Fase 2: Validación del funcionamiento
 
-> Fase 1 cerrada el 2026-06-05. Todas las tareas completadas.
-> El estado vivo de las tareas se lleva en `context/state/progress.md`.
-> Ver `context/handoffs/file.md` para el resumen de cierre.
+Última actualización: 2026-06-05
 
-## Estado final de tareas IA
+## Tareas originales
 
-| # | Tarea | Estado |
-|---|-------|--------|
-| 1.1 | Trazar flujo GeoMIP | ✅ COMPLETADA |
-| 1.2 | Trazar flujo QNodes | ✅ COMPLETADA |
-| 1.3 | Verificar contratos reales de módulos | ✅ COMPLETADA |
-| 1.4 | Identificar diferencias reales GeoMIP vs QNodes | ✅ COMPLETADA |
-| 1.5 | Mapear deuda técnica | ✅ COMPLETADA |
-| 1.6 | Documentar decisiones bloqueantes | ✅ COMPLETADA |
+| ID | Descripción | Responsable | Estado |
+|----|-------------|-------------|--------|
+| 2.1 | Ejecutar GeoMIP n=5 y n=8; verificar CSV de resultados | IA | ✅ COMPLETADA |
+| 2.2 | Ejecutar QNodes n=5 y n=8; verificar CSV de resultados | IA | ✅ COMPLETADA |
+| 2.3 | Comparar GeoMIP vs QNodes vs BruteForce para n≤6 | IA | 🔴 PENDIENTE |
+| 2.5 | Confirmar que el profiling HTML se genera correctamente | IA | 🔴 PENDIENTE |
+| 2.6 | Documentar toda discrepancia en `known-issues.md` | IA | 🟡 EN CURSO |
 
-## Estado final de tareas Usuario
+## Tareas adicionales (identificadas dentro del alcance de Fase 2)
 
-| # | Tarea | Estado |
-|---|-------|--------|
-| U.1 | Leer flujo de ejecución GeoMIP | ✅ COMPLETADA |
-| U.2 | Responder preguntas de comprensión (12/12) | ✅ COMPLETADA |
-| U.3 | Ejecutar GeoMIP para n=5 | ✅ COMPLETADA |
-| U.4 | Confirmar decisiones bloqueantes | ✅ COMPLETADA |
+| ID | Descripción | Responsable | Estado |
+|----|-------------|-------------|--------|
+| 2.7 | Corrección de bug: inversión de ejes en oracle y parser de particiones (QNodes) | IA | ✅ COMPLETADA |
+| 2.8 | Optimización de GeoMIP (ajuste basado en documento previo) | IA | ✅ COMPLETADA |
+| 2.9 | Ejecuciones extendidas para n ∈ {10, 15, 20, 22} | IA | ✅ COMPLETADA |
+| 2.10 | Generación de TPMs para n ∈ {20, 22, 25} | IA | ✅ COMPLETADA |
 
-## Próximo archivo activo
+## Pendiente para cerrar la fase
 
-Cuando se inicie la Fase 2, este archivo se reemplazará con las tareas de Fase 2.
+- **2.3**: ejecutar comparación explícita GeoMIP vs QNodes vs BruteForce para n≤6 con `|φ_nuevo - φ_ref| < 1e-9`.
+- **2.5**: confirmar que el profiling HTML se genera en `results/` después de una ejecución batch.
+- **2.6**: completar documentación de discrepancias (especialmente GeoMIP N8A con φ=0 en todos los casos).

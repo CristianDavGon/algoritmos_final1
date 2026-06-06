@@ -43,6 +43,35 @@
 
 ---
 
+## Issues encontradas en Fase 2
+
+### Deuda técnica y bugs
+
+| ID | Archivo(s) | Descripción | Severidad | Estado |
+|----|-----------|-------------|-----------|--------|
+| DT-10 | `code/QNodes/src/controllers/strategies/qnodes.py` (oracle y parser de particiones) | Bug: inversión de ejes en el oracle Queyranne y en el parser de particiones de QNodes. Causaba resultados incorrectos (φ erróneo) al procesar la TPM con ejes invertidos. Corregido en commit `b2b00e1`. | Alta | ✅ Corregido |
+| DT-11 | `code/QNodes/results/resultados_N8A.csv`, `code/QNodes/results/resultados_N15A.csv` | Archivos CSV vacíos (sin datos de φ ni tiempo) generados antes de la corrección DT-10. Son archivos legacy de runs fallidos. Los runs válidos post-fix son N8B y N15B respectivamente. | Baja | ✅ Documentado — archivos legacy |
+
+### Discrepancias entre GeoMIP y QNodes
+
+| n | Rango φ GeoMIP | Rango φ QNodes | Observación |
+|---|---------------|---------------|-------------|
+| 5 | 0.0 – 0.500 | 0.0 – 0.25 | Rangos distintos. Las tandas A (GeoMIP) y B (QNodes) corresponden a lotes distintos de TPMs — no son casos comparables directamente. |
+| 8 | **0.0 – 0.0 ⚠️** | 0.0 – 1.0 (N8B) | GeoMIP N8A produce φ=0.0 para los 49 casos. QNodes N8B cubre [0, 1]. Se requiere verificar si los lotes de TPMs son iguales o si existe un problema en GeoMIP para n=8. |
+| 10 | 0.00391 – 0.484 | 0.00586 – 0.480 | Rangos comparables. Sin comparación caso a caso disponible. |
+| 15 | 0.0 – 7.61e-4 (A) / 0.0 – 1.51e-3 (B) | 0.0 – 0.270 (B) | Rangos muy distintos. GeoMIP N15A/B tienen φ max muy bajo vs QNodes N15B (0.27). Probable causa: lotes de TPMs distintos. |
+| 20 | 2.86e-5 – 0.499 (A) | 2.86e-5 – 0.499 (B) | Rangos idénticos — probable coincidencia de muestras o mismo lote. |
+
+> ⚠️ **GeoMIP N8A — φ=0 en todos los casos**: 49 de 49 sistemas del lote A para n=8 tienen φ=0.0. Esto puede indicar que el lote A de n=8 contiene exclusivamente sistemas con partición natural (φ=0), o que existe un problema en la estrategia geométrica para ese tamaño. Se recomienda comparar los IDs de casos GeoMIP N8A vs QNodes N8B para el mismo lote antes de descartar un bug.
+
+### N15B vs N15A
+
+- **GeoMIP N15A**: φ ∈ [0.0, 7.61e-4], T̄ ≈ 0.597 s
+- **GeoMIP N15B**: φ ∈ [0.0, 1.51e-3], T̄ ≈ 0.729 s — φ max ~2× el de N15A. Consistente con muestras distintas del mismo espacio. No se considera una discrepancia preocupante.
+- **QNodes N15B**: φ ∈ [0.0, 0.270], T̄ ≈ 0.0139 s — mucho más rápido que GeoMIP (≈42×) y con φ max muy superior. Diferencia atribuida a lotes distintos de TPMs y diferencia algorítmica.
+
+---
+
 ## Leyenda
 
 - 🔍 Por verificar

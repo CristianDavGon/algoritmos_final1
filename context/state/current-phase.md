@@ -1,21 +1,24 @@
 # Fase Actual
 
-**Fase**: Fase 1 — Comprensión profunda del proyecto
-**Estado**: ✅ COMPLETADA
-**Inicio**: 2026-05-27
-**Cierre**: 2026-06-05
-**SDD asociado**: `context/SDD-1/`
+**Fase**: Fase 2 — Validación del funcionamiento
+**Estado**: 🟡 EN CURSO
+**Inicio**: 2026-06-05
+**SDD asociado**: ninguno por ahora (se creará SDD-2 al cerrar la fase)
 
 ## Objetivo
 
-Entender a fondo el código existente antes de modificar nada: flujo de ejecución, contratos entre módulos, puntos de extensión y deuda técnica conocida.
+Verificar que GeoMIP y QNodes producen resultados correctos antes de extender a k-particiones.
 
 ## Criterio de salida
 
-- El agente puede explicar el flujo completo `exec.py → iniciar() → aplicar_estrategia()` sin leer el código.
-- `context/state/known-issues.md` actualizado con todos los problemas identificados.
-- Decisiones bloqueantes para k-particiones resueltas o formalmente documentadas como pendientes.
+| Criterio | Estado |
+|----------|--------|
+| Ambas estrategias ejecutan sin errores para n ∈ {5, 8} | ✅ Cumplido |
+| Al menos un caso n=5 validado contra BruteForce (`\|φ_nuevo - φ_ref\| < 1e-9`) | 🔴 Pendiente — comparación BruteForce no realizada aún |
+| CSV de resultados verificados y coherentes | 🟡 Parcial — GeoMIP N8A con φ=0.0 en todos los casos (sospechoso); QNodes N8A y N15A vacíos (legacy pre-fix DT-10) |
+| Comparación GeoMIP vs QNodes vs BruteForce para n≤6 | 🔴 Sin evidencia de archivo de comparación explícito |
+| Profiling HTML generado correctamente | 🔴 Sin confirmar |
 
 ## Siguiente fase
 
-→ **Fase 2 — Validación del funcionamiento** (ejecutar GeoMIP y QNodes para n=5 y n=8, comparar con BruteForce/PyPhi).
+→ **Fase 3 — Optimización y limpieza del código existente**
