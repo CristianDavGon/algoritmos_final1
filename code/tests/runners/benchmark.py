@@ -31,11 +31,13 @@ class BenchmarkRunner:
         pyphi_adapter: PyPhiAdapter,
         cache: PyPhiCache,
         tol_phi: float = 1e-4,
+        reference_name: str = "pyphi",
     ) -> None:
         self._strategy = strategy_adapter
         self._pyphi = pyphi_adapter
         self._cache = cache
         self._tol_phi = tol_phi
+        self._reference_name = reference_name
 
     def run(
         self,
@@ -61,7 +63,8 @@ class BenchmarkRunner:
         records = []
         total = len(test_cases)
 
-        print(f"\n  Ejecutando {self._strategy.strategy_name} vs PyPhi  —  N{n_nodes}{tpm_page}  ({total} casos)\n")
+        ref_label = self._reference_name.upper()
+        print(f"\n  Ejecutando {self._strategy.strategy_name} vs {ref_label}  —  N{n_nodes}{tpm_page}  ({total} casos)\n")
 
         for tc in test_cases:
             cached = self._cache.get(
@@ -93,7 +96,8 @@ class BenchmarkRunner:
 
         self._cache.save()
         report = agregar_reporte(
-            records, self._strategy.strategy_name, n_nodes, tpm_page, estado_inicial
+            records, self._strategy.strategy_name, n_nodes, tpm_page, estado_inicial,
+            reference_name=self._reference_name,
         )
         csv_path = guardar_csv(report)
         md_path = guardar_markdown(report)

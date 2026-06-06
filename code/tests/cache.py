@@ -88,11 +88,11 @@ class PyPhiCache:
         """Store a PyPhi result in memory until save() is called."""
         key = self._make_key(n_nodes, tpm_page, estado_inicial, alcance_bin, mecanismo_bin)
         self._store[key] = {
-            "perdida": result.perdida,
+            "perdida": float(result.perdida),
             "particion": result.particion,
-            "dist_subsistema": result.dist_subsistema.tolist(),
-            "dist_particion": result.dist_particion.tolist(),
-            "tiempo": result.tiempo,
+            "dist_subsistema": [float(x) for x in result.dist_subsistema.tolist()],
+            "dist_particion": [float(x) for x in result.dist_particion.tolist()],
+            "tiempo": float(result.tiempo),
         }
         self._dirty = True
 

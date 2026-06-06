@@ -1,6 +1,6 @@
 # Known Issues — Fase 1
 
-Última actualización: 2026-06-05 (cierre de fase)
+Última actualización: 2026-06-05 (tarea 2.6 completada — known-issues cerrado)
 
 > Este archivo se actualiza durante la Fase 1 a medida que se identifican problemas.
 > En Fase 2 (Validación) se agregarán discrepancias de resultados.
@@ -57,12 +57,12 @@
 | n | Rango φ GeoMIP | Rango φ QNodes | Observación |
 |---|---------------|---------------|-------------|
 | 5 | 0.0 – 0.500 | 0.0 – 0.25 | Rangos distintos. Las tandas A (GeoMIP) y B (QNodes) corresponden a lotes distintos de TPMs — no son casos comparables directamente. |
-| 8 | **0.0 – 0.0 ⚠️** | 0.0 – 1.0 (N8B) | GeoMIP N8A produce φ=0.0 para los 49 casos. QNodes N8B cubre [0, 1]. Se requiere verificar si los lotes de TPMs son iguales o si existe un problema en GeoMIP para n=8. |
+| 8 | **0.0 – 0.0** | 0.0 – 1.0 (N8B) | GeoMIP N8A y QNodes N8A (mismo sampleA) producen φ=0.0 en los 49 casos. BruteForce confirma φ=0.0 en todos los mismos casos (exactitud 100%, Δφ=0). **Comportamiento correcto**: el lote sampleA de n=8 contiene exclusivamente sistemas con partición natural (φ=0). QNodes N8B, al usar sampleB distinto, cubre [0, 1]. |
 | 10 | 0.00391 – 0.484 | 0.00586 – 0.480 | Rangos comparables. Sin comparación caso a caso disponible. |
 | 15 | 0.0 – 7.61e-4 (A) / 0.0 – 1.51e-3 (B) | 0.0 – 0.270 (B) | Rangos muy distintos. GeoMIP N15A/B tienen φ max muy bajo vs QNodes N15B (0.27). Probable causa: lotes de TPMs distintos. |
 | 20 | 2.86e-5 – 0.499 (A) | 2.86e-5 – 0.499 (B) | Rangos idénticos — probable coincidencia de muestras o mismo lote. |
 
-> ⚠️ **GeoMIP N8A — φ=0 en todos los casos**: 49 de 49 sistemas del lote A para n=8 tienen φ=0.0. Esto puede indicar que el lote A de n=8 contiene exclusivamente sistemas con partición natural (φ=0), o que existe un problema en la estrategia geométrica para ese tamaño. Se recomienda comparar los IDs de casos GeoMIP N8A vs QNodes N8B para el mismo lote antes de descartar un bug.
+> ✅ **GeoMIP N8A — φ=0 confirmado como comportamiento del lote**: Los 49 sistemas del sampleA para n=8 tienen φ=0.0 de forma genuina. Verificado cruzando con BruteForce (exactitud φ 100%, Δφ máximo=0.000000 en todos los estados del lote) y con QNodes sobre el mismo sampleA (mismo resultado). No hay bug en GeoMIP ni en QNodes para este tamaño. El lote sampleA de n=8 contiene exclusivamente sistemas con partición natural.
 
 ### N15B vs N15A
 

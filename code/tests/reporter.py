@@ -15,26 +15,27 @@ _STRATEGY_SUBDIR: dict[str, str] = {
 }
 
 
-def _results_dir(strategy_name: str) -> Path:
+def _results_dir(strategy_name: str, reference_name: str = "pyphi") -> Path:
     subdir = _STRATEGY_SUBDIR.get(strategy_name.lower(), strategy_name.lower())
-    return _RESULTS_ROOT / subdir
+    return _RESULTS_ROOT / subdir / f"vs_{reference_name.lower()}"
 
 
 def _base_stem(report: BenchmarkReport) -> str:
     date_str = datetime.now().strftime("%Y-%m-%d")
     estado = report.estado_inicial
     page = report.tpm_page
+    ref = report.reference_name.lower()
     return (
         f"N{report.n_nodes}{page}"
         f"_estado{estado}"
         f"_sample{page}"
-        f"_{report.strategy_name.lower()}_vs_pyphi_{date_str}"
+        f"_{report.strategy_name.lower()}_vs_{ref}_{date_str}"
     )
 
 
 def guardar_csv(report: BenchmarkReport) -> Path:
-    """Write benchmark results to a dated CSV file in tests/results/<algo>/."""
-    out_dir = _results_dir(report.strategy_name)
+    """Write benchmark results to a dated CSV file in tests/results/<algo>/vs_<ref>/."""
+    out_dir = _results_dir(report.strategy_name, report.reference_name)
     out_dir.mkdir(parents=True, exist_ok=True)
     path = out_dir / f"{_base_stem(report)}.csv"
     fieldnames = [
@@ -71,17 +72,18 @@ def guardar_csv(report: BenchmarkReport) -> Path:
 
 
 def guardar_markdown(report: BenchmarkReport) -> Path:
-    """Write a detailed per-case Markdown comparison report in tests/results/<algo>/."""
-    out_dir = _results_dir(report.strategy_name)
+    """Write a detailed per-case Markdown comparison report in tests/results/<algo>/vs_<ref>/."""
+    out_dir = _results_dir(report.strategy_name, report.reference_name)
     out_dir.mkdir(parents=True, exist_ok=True)
     path = out_dir / f"{_base_stem(report)}.md"
 
     red = f"N{report.n_nodes}{report.tpm_page}"
+    ref_label = report.reference_name.upper()
     lines: list[str] = []
 
     # ── Encabezado ──────────────────────────────────────────────────────────
     lines += [
-        f"# Comparación {report.strategy_name} vs PyPhi — Red {red}",
+        f"# Comparación {report.strategy_name} vs {ref_label} — Red {red}",
         f"",
         f"Estado inicial: `{report.estado_inicial}`  |  "
         f"Tolerancia φ: `1e-4`  |  "
@@ -110,7 +112,7 @@ def guardar_markdown(report: BenchmarkReport) -> Path:
     lines += [
         f"## Tabla comparativa",
         f"",
-        f"| # | Alcance | Mec. | φ PyPhi | φ {report.strategy_name} | Δφ | Error% | φ✓ | Part✓ |",
+        f"| # | Alcance | Mec. | φ {ref_label} | φ {report.strategy_name} | Δφ | Error% | φ✓ | Part✓ |",
         f"|---|---------|------|---------|------------|-----|--------|-----|-------|",
     ]
     for r in report.records:
@@ -129,13 +131,15 @@ def guardar_markdown(report: BenchmarkReport) -> Path:
     # ── Detalle por caso ─────────────────────────────────────────────────────
     lines += ["## Detalle por caso", ""]
     for r in report.records:
-        _append_case_detail(lines, r, report.strategy_name)
+        _append_case_detail(lines, r, report.strategy_name, ref_label)
 
     path.write_text("\n".join(lines), encoding="utf-8")
     return path
 
 
-def _append_case_detail(lines: list[str], r: RunRecord, strategy_name: str) -> None:
+def _append_case_detail(
+    lines: list[str], r: RunRecord, strategy_name: str, ref_label: str = "PYPHI"
+) -> None:
     """Append the detailed comparison block for one RunRecord."""
     tc = r.test_case
     phi_ok = "COINCIDE" if r.phi_match else "DIFIERE"
@@ -145,7 +149,7 @@ def _append_case_detail(lines: list[str], r: RunRecord, strategy_name: str) -> N
     lines.append("")
 
     if r.referencia.error or r.candidato.error:
-        lines.append(f"> ERROR — PyPhi: `{r.referencia.error}` | {strategy_name}: `{r.candidato.error}`")
+        lines.append(f"> ERROR — {ref_label}: `{r.referencia.error}` | {strategy_name}: `{r.candidato.error}`")
         lines.append("")
         return
 
@@ -158,7 +162,7 @@ def _append_case_detail(lines: list[str], r: RunRecord, strategy_name: str) -> N
     lines += [
         f"**φ (pérdida)**",
         f"",
-        f"| | PyPhi | {strategy_name} | Diferencia |",
+        f"| | {ref_label} | {strategy_name} | Diferencia |",
         f"|--|-------|--------|------------|",
         f"| φ | `{phi_ref:.6f}` | `{phi_cand:.6f}` | Δ=`{delta:.6f}` ({err_str}) — **{phi_ok}** |",
         f"",
@@ -181,7 +185,7 @@ def _append_case_detail(lines: list[str], r: RunRecord, strategy_name: str) -> N
         lines += [
             f"<details><summary>Ver particiones (diferentes)</summary>",
             f"",
-            f"**PyPhi:**",
+            f"**{ref_label}:**",
             "```",
             part_ref.strip(),
             "```",
@@ -203,8 +207,9 @@ def imprimir_resumen(report: BenchmarkReport) -> None:
     """Print a formatted summary table to stdout."""
     w = 66
     red = f"N{report.n_nodes}{report.tpm_page}"
+    ref_label = report.reference_name.upper()
     print(f"\n{'=' * w}")
-    print(f"  RESUMEN  {report.strategy_name} vs PyPhi  |  Red: {red}  |  {report.total_tests} pruebas")
+    print(f"  RESUMEN  {report.strategy_name} vs {ref_label}  |  Red: {red}  |  {report.total_tests} pruebas")
     print(f"{'=' * w}")
     print(f"  Exactitud phi         : {report.phi_matches}/{report.total_tests}  ({report.phi_accuracy_pct:.1f}%)")
     print(f"  Exactitud particion   : {report.partition_matches}/{report.total_tests}  ({report.partition_accuracy_pct:.1f}%)")

@@ -58,6 +58,7 @@ class BenchmarkReport:
     total_tests: int
     phi_matches: int
     partition_matches: int
+    reference_name: str = "pyphi"
     speedups: list[float] = field(default_factory=list)
     delta_phis: list[float] = field(default_factory=list)
     records: list[RunRecord] = field(default_factory=list)

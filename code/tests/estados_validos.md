@@ -92,10 +92,11 @@ Para la lista completa, ejecutar el script de validación (ver abajo).
 | 6      | `0001110111`, `0110111111`, `1010111101`, `1111000011`  |
 | 7      | `0101110111`, `0111011011`, `1011011111`, `1110011111`  |
 | 8      | `0110111111`, `0111101111`, `1010111111`, `1110110111`  |
-| 9      | `0111111111`, `1001111111`, `1111011111`, `1111110111`  |
+| 9      | `0111111111`, ~~`1001111111`~~, `1111011111`, `1111110111`  |
 | 10     | *(ninguno — `1111111111` no es alcanzable)*             |
 
 > **Nota:** `1111111111` (todos unos) **no es alcanzable** en N10A.
+> **Nota:** ~~`1001111111`~~ fue listado como representante de 9 unos pero **no es alcanzable** — PyPhi lanza `The state cannot be reached in the given TPM`. Eliminado de `run_all_states.py`.
 
 
 ---

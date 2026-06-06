@@ -111,6 +111,7 @@ def agregar_reporte(
     n_nodes: int,
     tpm_page: str,
     estado_inicial: str,
+    reference_name: str = "pyphi",
 ) -> BenchmarkReport:
     """Aggregate a list of RunRecords into a BenchmarkReport.
 
@@ -120,6 +121,7 @@ def agregar_reporte(
         n_nodes: Number of nodes.
         tpm_page: Network page letter (e.g. "A").
         estado_inicial: Initial state binary string.
+        reference_name: Name of the reference oracle ("pyphi" or "bruteforce").
 
     Returns:
         BenchmarkReport with cumulative statistics.
@@ -132,6 +134,7 @@ def agregar_reporte(
         total_tests=len(records),
         phi_matches=0,
         partition_matches=0,
+        reference_name=reference_name,
         records=records,
     )
     for r in records:
