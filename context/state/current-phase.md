@@ -22,4 +22,4 @@ Verificar que GeoMIP y QNodes producen resultados correctos antes de extender a 
 
 ## Siguiente fase
 
-→ **Fase 3 — Optimización y limpieza del código existente**
+→ **Fase 3 — Extensión KQNodes (k-particiones submodular)**

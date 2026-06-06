@@ -87,31 +87,7 @@ Verificar que el código existente funciona correctamente antes de extenderlo. C
 
 ---
 
-## Fase 3 — Optimización y limpieza del código existente
-
-**Estado**: 🔴 PENDIENTE
-
-### Descripción
-Mejorar la calidad del código existente sin cambiar comportamiento: eliminar deuda técnica, agregar tests, reemplazar prints, antes de entrar a las extensiones k.
-
-### Tareas
-
-1. Reemplazar todos los `print()` de producción por `SafeLogger` (ver R-08, especialmente `ncube.py`).
-2. Escribir tests de regresión para `QNodes(k=2)` en `code/QNodes/tests/` (ver R-09).
-3. Escribir tests de regresión para `GeometricSIA(k=2)` en `code/GeoMIP/`.
-4. Verificar cobertura ≥ 85% en módulos críticos (`System`, `NCube`, estrategias).
-5. Eliminar código duplicado evidente entre GeoMIP y QNodes donde sea posible sin romper arquitectura.
-6. Resolver todas las issues de tipado detectadas por mypy.
-
-### Criterio de DONE
-- Sin `print()` en código de producción.
-- Tests de regresión k=2 pasan en ambos sub-proyectos.
-- Cobertura ≥ 85% en módulos core.
-- mypy sin errores críticos.
-
----
-
-## Fase 4 — Extensión KQNodes (k-particiones submodular)
+## Fase 3 — Extensión KQNodes (k-particiones submodular)
 
 **Estado**: 🔴 PENDIENTE
 
@@ -136,7 +112,7 @@ Extender QNodes al caso k-particiones, reutilizando el algoritmo Queyranne/MAO. 
 
 ---
 
-## Fase 5 — Extensión KGeoMIP (k-particiones geométrica)
+## Fase 4 — Extensión KGeoMIP (k-particiones geométrica)
 
 **Estado**: 🔴 PENDIENTE
 
@@ -159,6 +135,30 @@ Extender GeoMIP al caso k-particiones con `k ∈ {2, 3, 4, 5}`, reutilizando la 
 - Tipado completo.
 - Docstrings en todos los métodos públicos.
 - Al menos un CSV de resultados generado.
+
+---
+
+## Fase 5 — Optimización y limpieza del código existente
+
+**Estado**: 🔴 PENDIENTE
+
+### Descripción
+Mejorar la calidad del código existente sin cambiar comportamiento: eliminar deuda técnica, agregar tests, reemplazar prints, una vez finalizadas las extensiones k principales.
+
+### Tareas
+
+1. Reemplazar todos los `print()` de producción por `SafeLogger` (ver R-08, especialmente `ncube.py`).
+2. Escribir tests de regresión para `QNodes(k=2)` en `code/QNodes/tests/` (ver R-09).
+3. Escribir tests de regresión para `GeometricSIA(k=2)` en `code/GeoMIP/`.
+4. Verificar cobertura ≥ 85% en módulos críticos (`System`, `NCube`, estrategias).
+5. Eliminar código duplicado evidente entre GeoMIP y QNodes donde sea posible sin romper arquitectura.
+6. Resolver todas las issues de tipado detectadas por mypy.
+
+### Criterio de DONE
+- Sin `print()` en código de producción.
+- Tests de regresión k=2 pasan en ambos sub-proyectos.
+- Cobertura ≥ 85% en módulos core.
+- mypy sin errores críticos.
 
 ---
 

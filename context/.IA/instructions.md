@@ -14,9 +14,9 @@ El proyecto sigue un flujo secuencial obligatorio. No saltar fases:
 
 1. **Fase 1 — Comprensión**: leer y trazar el código existente antes de cualquier cambio.
 2. **Fase 2 — Validación**: verificar que GeoMIP y QNodes funcionan correctamente (ejecutar, comparar con BruteForce/PyPhi).
-3. **Fase 3 — Optimización**: limpiar deuda técnica (prints, tests, tipado) antes de extender.
-4. **Fase 4 — KQNodes**: extensión k-particiones submodular (primera extensión, ver DEC-10).
-5. **Fase 5 — KGeoMIP**: extensión k-particiones geométrica (segunda extensión).
+3. **Fase 3 — KQNodes**: extensión k-particiones submodular (primera extensión, ver DEC-10).
+4. **Fase 4 — KGeoMIP**: extensión k-particiones geométrica (segunda extensión).
+5. **Fase 5 — Optimización**: limpiar deuda técnica (prints, tests, tipado).
 6. **Fase 6 — Integración**: validación cruzada y métricas comparativas.
 7. **Fase 7 — Documentación**: manuales LaTeX y video tutorial.
 
