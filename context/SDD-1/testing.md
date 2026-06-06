@@ -1,4 +1,4 @@
-# SDD-0 — Testing: Verificación de comprensión (Fase 1)
+# SDD-1 — Testing: Verificación de comprensión (Fase 1)
 
 > Instrucción: Lee los archivos indicados en `planning.md` y responde cada pregunta.
 > Un criterio de DONE para la fase es responder correctamente ≥7 de las 10.

@@ -1,4 +1,4 @@
-# SDD-0 — Implementation: Guía de comprensión del código
+# SDD-1 — Implementation: Guía de comprensión del código
 
 > Este documento es la fuente viva de comprensión. Se llena durante la Fase 1.
 
@@ -114,4 +114,3 @@ exec.py
 | DT-05 | `code/GeoMIP/src/models/base/sia.py` | 61, 90 | Comentarios `#! COMENTAR / DESCOMENTAR` — indica toggle manual en producción |
 | DT-06 | `code/GeoMIP/src/controllers/strategies/geometric.py` | 51-61 | Docstring como prosa de diseño, no contrato — no describe entradas/salidas |
 | DT-07 | `code/GeoMIP/src/controllers/strategies/geometric.py` | ~200-230 | Bloque grande de código comentado (`# presentes_1 = ...`, etc.) — código muerto |
-| ... | ... | ... | ... |

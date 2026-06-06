@@ -26,7 +26,8 @@ Implementación de las dos estrategias de bipartición originales y toda la infr
 
 ## Fase 1 — Comprensión profunda del proyecto
 
-**Estado**: 🟡 EN CURSO
+**Estado**: ✅ COMPLETADA
+**Cierre**: 2026-06-05
 
 ### Descripción
 Entender a fondo el código existente antes de modificar nada: flujo de ejecución, contratos entre módulos, puntos de extensión y deuda técnica conocida.
@@ -44,6 +45,13 @@ Entender a fondo el código existente antes de modificar nada: flujo de ejecuci�
 - El agente puede explicar el flujo completo sin leer el código.
 - `context/state/known-issues.md` actualizado con todos los problemas identificados.
 - Decisiones bloqueantes resueltas o formalmente documentadas como pendientes.
+
+### Resultados obtenidos
+- Flujo trazado: `exec.py → iniciar() → Manager → SIA → aplicar_estrategia() → Solution` para GeoMIP y QNodes.
+- 12/12 preguntas de comprensión respondidas correctamente en `context/SDD-1/testing.md`.
+- 9 issues de deuda técnica (DT-01 a DT-09) catalogados en `context/state/known-issues.md`.
+- 4 decisiones bloqueantes resueltas en `context/SDD-1/decisions.md` (DB-01 a DB-04).
+- Carpeta renombrada de `SDD-0` → `SDD-1` para reflejar la fase correcta.
 
 ---
 

@@ -1,4 +1,4 @@
-# SDD-0 — Planning: Comprensión profunda del proyecto
+# SDD-1 — Planning: Comprensión profunda del proyecto
 
 **Fase**: Fase 1
 **Objetivo**: Trazar, verificar y documentar el código existente antes de cualquier modificación.
@@ -46,10 +46,10 @@ Búsqueda global por: `print(`, `#!`, `TODO`, `FIXME`, `# type: ignore`, `pass`,
 
 ## Entregables de la fase
 
-1. `context/SDD-0/implementation.md` — flujo anotado y tabla de diferencias
-2. `context/SDD-0/decisions.md` — 4 decisiones bloqueantes formalizadas
+1. `context/SDD-1/implementation.md` — flujo anotado y tabla de diferencias
+2. `context/SDD-1/decisions.md` — 4 decisiones bloqueantes formalizadas
 3. `context/state/known-issues.md` — deuda técnica catalogada
-4. `context/SDD-0/testing.md` — preguntas de comprensión respondidas (por el usuario)
+4. `context/SDD-1/testing.md` — preguntas de comprensión respondidas (por el usuario)
 
 ---
 
@@ -58,3 +58,8 @@ Búsqueda global por: `print(`, `#!`, `TODO`, `FIXME`, `# type: ignore`, `pass`,
 - No modificar ningún archivo de `code/` en esta fase.
 - Si se detecta un bug obvio: documentarlo en `known-issues.md`, no corregirlo.
 - No inferir comportamiento del código — leer y verificar siempre.
+
+## Estado de cierre
+
+**Completado**: 2026-06-05
+Todos los entregables generados. Ver `context/state/progress.md` para el tablero de tareas y `context/handoffs/file.md` para el resumen de entrega.
