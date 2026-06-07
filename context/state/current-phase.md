@@ -1,25 +1,31 @@
 # Fase Actual
 
-**Fase**: Fase 2 — Validación del funcionamiento
-**Estado**: ✅ COMPLETADA
-**Inicio**: 2026-06-05
-**Cierre**: 2026-06-05
-**SDD asociado**: `context/SDD-2/`
+**Fase**: Fase 3 — Extensión KQNodes (k-particiones submodular)
+**Estado**: 🟡 EN CURSO
+**Inicio**: 2026-06-07
+**Cierre**: —
+**SDD asociado**: `context/SDD-3/`
 
 ## Objetivo
 
-Verificar que GeoMIP y QNodes producen resultados correctos antes de extender a k-particiones.
+Implementar `KQNodes`: extensión de `QNodes` (bipartición Queyranne–MAO) al caso k-particiones con k ∈ {2,3,4,5}, reutilizando el oracle() y qnodes() existentes sin duplicar código. El criterio de selección es C4 (corte marginal mínimo).
+
+## Fase anterior
+
+**Fase 2** — Validación del funcionamiento: ✅ COMPLETADA el 2026-06-05.
+Ver `context/handoffs/02.md` para el resumen de cierre.
 
 ## Criterio de salida
 
 | Criterio | Estado |
 |----------|--------|
-| Ambas estrategias ejecutan sin errores para n ∈ {5, 8} | ✅ Cumplido |
-| Al menos un caso n=5 validado contra BruteForce (`\|φ_nuevo - φ_ref\| < 1e-9`) | ✅ Cumplido — exactitud 100%, Δφ=0.000000 para n ∈ {5, 8} |
-| CSV de resultados verificados y coherentes | ✅ Cumplido — GeoMIP N8A φ=0 confirmado como correcto |
-| Comparación GeoMIP vs QNodes vs BruteForce para n≤6 | ✅ Cumplido — resultados en `code/tests/results/` |
-| Profiling HTML generado correctamente | ✅ Cumplido — 214 KB, 870 entradas en `GeoMIP/review/profiling/` |
+| KQNodes(k=2) == QNodes para n ∈ {5,8,10} (tolerancia 1e-9) | 🔴 Pendiente |
+| φ(k+1) ≥ φ(k) para k ∈ {2,3,4} — monotonicidad correcta | 🔴 Pendiente |
+| Gap φ_greedy − φ* ≥ 0 medido y tasa de acierto exacto reportada para k≥3, n≤6 | 🔴 Pendiente |
+| CSV de resultados para k ∈ {2,3,4,5}, n ∈ {5,8,10} | 🔴 Pendiente |
+| Cobertura ≥ 85% en módulo KQNodes | 🔴 Pendiente |
+| Tipado completo (mypy) y docstrings en métodos públicos | 🔴 Pendiente |
 
 ## Siguiente fase
 
-→ **Fase 3 — Extensión KQNodes (k-particiones submodular)**
+→ **Fase 4 — Extensión KGeoMIP (k-particiones geométrica)**

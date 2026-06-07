@@ -89,26 +89,33 @@ Verificar que el código existente funciona correctamente antes de extenderlo. C
 
 ## Fase 3 — Extensión KQNodes (k-particiones submodular)
 
-**Estado**: 🔴 PENDIENTE
+**Estado**: 🟡 EN CURSO
+**Inicio**: 2026-06-07
 
 ### Descripción
-Extender QNodes al caso k-particiones, reutilizando el algoritmo Queyranne/MAO. **Se prioriza KQNodes sobre KGeoMIP** por su mejor complejidad algorítmica (O(D³) extendible iterativamente) y por no tener los problemas de escalabilidad de la tabla de transiciones geométrica (ver DEC-10).
+Extender QNodes al caso k-particiones con k ∈ {2,3,4,5}, reutilizando el oracle y MAO existentes. **Se prioriza KQNodes sobre KGeoMIP** por su mejor complejidad algorítmica (O(k·D³) extendible iterativamente) y por no tener los problemas de escalabilidad de la tabla de transiciones geométrica (ver DEC-10). El criterio de selección es **C4 (corte marginal mínimo)**: bipartir la parte cuyo mejor corte es el más barato — el único criterio alineado con minimizar Φ. Ver DEC-12 corregido.
 
 ### Tareas
 
-1. **Diseño**: definir si la extensión usa Queyranne iterativo con re-fusión o formulación multi-vía. [PENDIENTE: confirmar con el humano]
-2. **`KQNodes`**: implementa `aplicar_estrategia()` para k > 2, reutilizando oracle + MAO.
-3. **Reutilización**: el oracle y MAO de `src/strategies/qnodes.py` deben reutilizarse sin copiar código.
-4. **Tests de regresión**: `KQNodes(k=2) == QNodes`.
-5. **Tests de consistencia**: φ(k+1) ≤ φ(k) para k ∈ {2,3,4}.
-6. **Resultados experimentales**: CSV para k ∈ {2,3,4,5}, n ∈ {5,8,10}.
+1. **`KQNodes`**: implementar `KQNodes(SIA).aplicar_estrategia(k)` con criterio C4 (MinHeap por φ_local).
+2. **Variante C1**: conservar como opción para A/B testing experimental (`criterio='C1'`).
+3. **Remapeo de máscaras**: implementar oracle restringido f|_{Pi} con remapeo de índices global → local (§4.3 del documento de diseño).
+4. **Caché por bloque**: instanciar caché fresh por cada llamada a QNodes; no compartir globalmente (D3-02).
+5. **Tests de regresión**: `KQNodes(k=2) == QNodes` para n ∈ {5,8,10}, tolerancia 1e-9.
+6. **Tests de monotonicidad**: `φ(k+1) ≥ φ(k)` para k ∈ {2,3,4} — dirección corregida (no `≤`).
+7. **Medición de gap vs BruteForce**: gap = φ_greedy − φ* ≥ 0 y tasa de acierto exacto para k ∈ {3,4}, n ≤ 6.
+8. **A/B testing C1 vs C4**: comparar gap medio y % acierto para evidencia experimental (rúbrica).
+9. **Resultados experimentales**: CSV para k ∈ {2,3,4,5}, n ∈ {5,8,10}.
 
 ### Criterio de DONE
-- Regresión k=2 pasa.
-- Cobertura ≥ 85%.
-- Tipado completo.
-- Docstrings en todos los métodos públicos.
-- Al menos un CSV de resultados generado.
+- Regresión k=2 pasa (KQNodes(k=2) == QNodes, tolerancia 1e-9).
+- Monotonicidad **φ(k+1) ≥ φ(k)** verificada para k ∈ {2,3,4} — assert con dirección correcta.
+- Gap de optimalidad φ_greedy − φ* ≥ 0 medido y tasa de acierto exacto reportada para k ∈ {3,4}, n ≤ 6 (no exigir igualdad exacta).
+- A/B testing C1 vs C4 ejecutado y comparación documentada.
+- CSV de resultados para k ∈ {2,3,4,5}, n ∈ {5,8,10} generados.
+- Cobertura ≥ 85% en módulo KQNodes.
+- Tipado completo (mypy) y docstrings en todos los métodos públicos.
+- Ver criterios completos en `context/SDD-3/done-criteria.md`.
 
 ---
 
