@@ -29,7 +29,7 @@ if str(_CODE_ROOT) not in sys.path:
     sys.path.insert(0, str(_CODE_ROOT))
 
 # ─── CONFIGURE HERE ───────────────────────────────────────────────────────────
-ESTADO_INICIO: str = "11111111" # length = N nodes — use N <= 6 with BruteForce
+ESTADO_INICIO: str = "10000000" # length = N nodes — use N <= 6 with BruteForce
 PAGINA: str = "A"
 N_TESTS: int | None = None        # None = all test cases from Excel (~49)
 TOL_PHI: float = 1e-9

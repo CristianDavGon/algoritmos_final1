@@ -110,7 +110,7 @@ class GeometricSIA(SIA):
         for _, (presentes, futuros) in enumerate(candidatos):
             presentes = self.sia_subsistema.dims_ncubos[presentes]
             futuros = self.sia_subsistema.indices_ncubos[futuros]
-            dist = self.sia_subsistema.bipartir(futuros, presentes).distribucion_marginal()
+            dist = self._distribucion_bipartida(futuros, presentes)
             emd = emd_efecto(dist, self.sia_dists_marginales)
             key = tuple([(0, nodo) for nodo in presentes] + [(1, nodo) for nodo in futuros])
             self.memoria_particiones[key] = (emd, dist)
@@ -119,6 +119,47 @@ class GeometricSIA(SIA):
         return min(
             self.memoria_particiones, key=lambda k: self.memoria_particiones[k][0]
         )
+
+    def _distribucion_bipartida(self, alcance: np.ndarray, mecanismo: np.ndarray) -> np.ndarray:
+        """
+        Computes distribucion_marginal(bipartir(alcance, mecanismo)) directly,
+        without materializing intermediate NCube objects.
+
+        Instead of: mean over 2^D elements → select 1 value
+        Does:        fix kept axes → mean over only 2^|marg| elements
+
+        For D=20 with |marg|=10, this is 2^10=1K vs 2^20=1M: ~1000x faster per NCube
+        (the full 8MB NCube array fits in L3 cache, so scatter reads are fast).
+        """
+        subsistema = self.sia_subsistema
+        estado_inicial = subsistema.estado_inicial
+        alcance_set = set(int(x) for x in alcance)
+        mecanismo_set = set(int(x) for x in mecanismo)
+
+        ncubos = subsistema.ncubos
+        distribuciones = np.empty(len(ncubos), dtype=np.float32)
+
+        for i, ncubo in enumerate(ncubos):
+            dims = ncubo.dims
+            dims_set = set(int(d) for d in dims)
+            n = len(dims)
+
+            if ncubo.indice in alcance_set:
+                keep_set = dims_set & mecanismo_set
+            else:
+                keep_set = dims_set - mecanismo_set
+
+            # axis k in data corresponds to dims[n-1-k] (little-endian layout)
+            idx = [slice(None)] * n
+            for k in range(n):
+                d = int(dims[n - 1 - k])
+                if d in keep_set:
+                    idx[k] = int(estado_inicial[d])
+
+            sub_data = ncubo.data[tuple(idx)]
+            distribuciones[i] = 1.0 - float(np.mean(sub_data))
+
+        return distribuciones
 
     def _build_tabla(self, estado_final: np.ndarray) -> None:
         """

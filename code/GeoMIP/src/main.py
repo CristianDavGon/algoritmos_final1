@@ -166,7 +166,7 @@ def iniciar():
             str(PROJECT_ROOT / "data" / "DatosPruebas2026_1.xlsx"),
         )
     )
-    estado_inicio = os.getenv("GEOMIP_ESTADO_INICIO", "1" + "0" * 19)
+    estado_inicio = os.getenv("GEOMIP_ESTADO_INICIO", "1" + "0" * 24)
     n = len(estado_inicio)
 
     ruta_salida_default = str(RESULTS_DIR / f"resultados_N{n}A.csv")
