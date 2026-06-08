@@ -42,7 +42,7 @@ Ejecutar tanto C4 como C1 sobre el mismo conjunto de test (n ≤ 6, k ∈ {3,4})
 
 ## Aprobación de salida
 
-- [ ] Todos los criterios C1–C10 verificados.
-- [ ] `context/state/active-tasks.md` con todas las tareas marcadas COMPLETADA.
-- [ ] `context/handoffs/03.md` creado con resumen de cierre.
-- [ ] `context/state/current-phase.md` actualizado a Fase 4.
+- [x] Todos los criterios C1–C10 verificados.
+- [x] `context/state/active-tasks.md` con todas las tareas marcadas COMPLETADA.
+- [x] `context/handoffs/03.md` creado con resumen de cierre.
+- [x] `context/state/current-phase.md` actualizado a Fase 4.

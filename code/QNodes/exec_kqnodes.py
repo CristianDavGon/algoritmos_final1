@@ -15,7 +15,7 @@ from src.models.base.application import aplicacion
 from src.main_kqnodes import iniciar_kqnodes
 
 # ── Configuración ─────────────────────────────────────────────────────────────
-ESTADO:   str = "1" + "0" * 7
+ESTADO:   str = "1" + "0" * 19
 K:        int = 5
 CRITERIO: str = "C4"   # "C4" = corte marginal mínimo, "C1" = tamaño máximo
 MUESTRA:  str = "A"

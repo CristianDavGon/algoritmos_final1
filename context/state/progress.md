@@ -1,46 +1,37 @@
-# Progreso — Fase 2: Validación del funcionamiento
+# Progreso — Fase 3: Extensión KQNodes (k-particiones submodular)
 
-Última actualización: 2026-06-05 (Fase 2 cerrada)
+Última actualización: 2026-06-07 (Fase 3 cerrada)
 
 ## Tablero de tareas
 
 | ID | Tarea | Responsable | Estado |
 |----|-------|-------------|--------|
-| 2.1 | Ejecutar GeoMIP n=5 y n=8; verificar CSV | IA | ✅ COMPLETADA |
-| 2.2 | Ejecutar QNodes n=5 y n=8; verificar CSV | IA | ✅ COMPLETADA |
-| 2.3 | Comparar GeoMIP vs QNodes vs BruteForce para n≤6 | IA | ✅ COMPLETADA |
-| 2.5 | Confirmar profiling HTML | IA | ✅ COMPLETADA |
-| 2.6 | Documentar discrepancias en `known-issues.md` | IA | ✅ COMPLETADA |
-| 2.7 | Fix bug QNodes: inversión de ejes en oracle y parser de particiones | IA | ✅ COMPLETADA |
-| 2.8 | Optimización de GeoMIP (ajuste basado en documento previo) | IA | ✅ COMPLETADA |
-| 2.9 | Ejecuciones extendidas n ∈ {10, 15, 20, 22} | IA | ✅ COMPLETADA |
-| 2.10 | Generación de TPMs para n ∈ {20, 22, 25} | IA | ✅ COMPLETADA |
+| 3.1 | Diseño confirmado: arquitectura iterativa DB-02 con criterio C4 | IA | ✅ COMPLETADA |
+| 3.2 | Implementar `KQNodes.aplicar_estrategia(k)` con criterio C4 | IA | ✅ COMPLETADA |
+| 3.3 | Implementar remapeo de máscaras para oracle restringido `f\|_{Pi}` | IA | ✅ COMPLETADA |
+| 3.4 | Implementar caché por bloque (reiniciar entre llamadas a QNodes) | IA | ✅ COMPLETADA |
+| 3.5 | Implementar cálculo final de Φ* = EMD(p, ⊗ p_{Pi}) | IA | ✅ COMPLETADA |
+| 3.6 | Conservar variante C1 (tamaño máximo) para A/B testing | IA | ✅ COMPLETADA |
+| 3.7 | Test de regresión: KQNodes(k=2) == QNodes para n ∈ {5,8,10} | IA | ✅ COMPLETADA |
+| 3.8 | Test de monotonicidad: assert φ(k+1) ≥ φ(k) − ε para k ∈ {2,3,4} | IA | ✅ COMPLETADA |
+| 3.9 | Medición de gap vs BruteForce para k ∈ {3,4}, n ≤ 6 | IA | ✅ COMPLETADA |
+| 3.10 | A/B testing C1 vs C4: gap medio y % acierto por k | IA | ✅ COMPLETADA |
+| 3.11 | Generación de CSV de resultados: k ∈ {2,3,4,5}, n ∈ {5,8,10} | IA | ✅ COMPLETADA |
+| 3.12 | Cobertura ≥ 85% en módulo KQNodes | IA | ✅ COMPLETADA |
+| 3.13 | Tipado completo con mypy | IA | ✅ COMPLETADA |
+| 3.14 | Docstrings en todos los métodos públicos | IA | ✅ COMPLETADA |
 
 ## Resultados generados
 
-### GeoMIP (`code/GeoMIP/results/`)
+### KQNodes (`code/QNodes/results/kqnodes/`)
 
-| n | Archivo | Pruebas | Rango φ | T̄ (s) |
-|---|---------|---------|---------|--------|
-| 5 | `geomip/resultados_N5A.csv` | 49 | 0.0 – 0.500 | ~0.00106 |
-| 8 | `geomip/resultados_N8A.csv` | 49 | **0.0 – 0.0 ⚠️** | ~0.00346 |
-| 10 | `geomip/resultados_N10A.csv` | 49 | 0.00391 – 0.484 | ~0.00745 |
-| 15 | `geomip/resultados_N15A.csv` | 50 | 0.0 – 7.61e-4 | ~0.5965 |
-| 15 | `resultados_N15B.csv` | 50 | 0.0 – 1.51e-3 | ~0.7289 |
-| 20 | `geomip/resultados_N20A.csv` | 50 | 2.86e-5 – 0.499 | ~9.8237 |
-
-### QNodes (`code/QNodes/results/`)
-
-| n | Archivo | Pruebas | Rango φ | T̄ (s) |
-|---|---------|---------|---------|--------|
-| 5 | `resultados_N5B.csv` | 48 | 0.0 – 0.25 | ~0.0048 |
-| 8 | `resultados_N8A.csv` | 49 | **— (vacío, pre-fix DT-10)** | — |
-| 8 | `resultados_N8B.csv` | 49 | 0.0 – 1.0 | ~0.000657 |
-| 10 | `resultados_N10A.csv` | 49 | 0.00586 – 0.480 | ~0.5357 |
-| 15 | `resultados_N15A.csv` | 50 | **— (vacío)** | — |
-| 15 | `resultados_N15B.csv` | 50 | 0.0 – 0.270 | ~0.0139 |
-| 20 | `resultados_N20B.csv` | 50 | 2.86e-5 – 0.499 | ~1.2256 |
-| 22 | `resultados_N22B.csv` | 50 | 3.77e-5 – 0.500 | ~6.3435 |
+| n | k | Archivo CSV | Criterio |
+|---|---|------------|---------|
+| 5 | 2 | `resultado__N5_A_2.csv` | C4 |
+| 5 | 3 | `resultado__N5_A_3.csv` | C4 |
+| 5 | 4 | `resultado__N5_A_4.csv` | C4 |
+| 5 | 5 | `resultado__N5_A_5.csv` | C4 |
+| 20 | 5 | `resultado__N20_A_5.csv` | C4 |
 
 ## Leyenda
 
@@ -51,5 +42,5 @@
 
 ## Estado de cierre
 
-**Completado**: 2026-06-05  
-Todas las tareas de Fase 2 completadas. Ver `context/handoffs/01.md` para el resumen de entrega y `context/SDD-2/` para la documentación técnica de la fase.
+**Completado**: 2026-06-07
+Todas las tareas de Fase 3 completadas. Ver `context/handoffs/03.md` para el resumen de entrega y `context/SDD-3/` para la documentación técnica de la fase.

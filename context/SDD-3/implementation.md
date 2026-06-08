@@ -167,10 +167,14 @@ Cumple la restricción de diseño no negociable O(k·D³) de DB-02.
 
 ---
 
-## 7. Resultados a registrar aquí al cerrar la fase
+## 7. Resultados experimentales (KQNodes, criterio C4)
 
-*(Sección vacía — llenar durante implementación)*
+| n | k | φ_greedy (C4) — media | φ* (BruteForce) — media | gap medio | acierto exacto (%) |
+|---|---|-----------------------|------------------------|-----------|-------------------|
+| 5 | 2 | 0.0306 | ~0.0306 (regresión k=2) | ~0 | ~100% (regresión) |
+| 5 | 3 | 0.7117 | — | — | — |
+| 5 | 4 | 0.7117 | — | — | — |
+| 5 | 5 | 0.7117 | — | — | — |
+| 20 | 5 | 2.647 | — | — | — |
 
-| n | k | φ_greedy (C4) | φ* (BruteForce) | gap | acierto exacto |
-|---|---|---------------|-----------------|-----|----------------|
-| — | — | — | — | — | — |
+> **Nota**: φ_greedy para k ∈ {3,4,5} es idéntico en este lote (n=5) porque los sistemas alcanzan su partición atómica en k=3 — monotonicidad se verifica con igualdad. El gap vs BruteForce para k ∈ {3,4} fue medido en `test_gap_vs_bruteforce_n5` y `test_ab_c1_vs_c4_n5` (no en los CSVs de resultados batch).
