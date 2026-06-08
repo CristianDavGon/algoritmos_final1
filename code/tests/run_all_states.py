@@ -75,7 +75,7 @@ _ALGOS = ["qnodes", "geomip"]
 _REFERENCES = ["pyphi", "bruteforce"]
 _THIS_DIR = Path(__file__).resolve().parent
 _CODE_ROOT = _THIS_DIR.parent
-_RUNNER = _THIS_DIR / "run_benchmark.py"
+_RUNNER = _THIS_DIR / "core" / "run_benchmark.py"
 
 
 def build_jobs(
@@ -89,6 +89,7 @@ def build_jobs(
     (only N <= _BRUTEFORCE_MAX_N), so the heavier reference runs last.
     """
     jobs: list[tuple[str, str, str, str, list[str]]] = []
+
     for reference in references:  # pyphi before bruteforce
         for (n, pagina), estados in VALID_STATES.items():
             if reference == "bruteforce" and n > _BRUTEFORCE_MAX_N:
@@ -106,13 +107,14 @@ def build_jobs(
                     if n_tests is not None:
                         cmd += ["--n-tests", str(n_tests)]
                     jobs.append((algo, reference, estado, pagina, cmd))
+
     return jobs
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run all valid-state benchmarks")
     parser.add_argument("--algo", choices=_ALGOS,
-                        help="Restrict to one algorithm (default: both)")
+                        help="Restrict to one algorithm (default: all)")
     parser.add_argument("--reference", choices=_REFERENCES,
                         help="Restrict to one reference oracle (default: both)")
     parser.add_argument("--n-tests", type=int, default=None,
@@ -127,7 +129,7 @@ def main() -> None:
     total = len(jobs)
 
     ref_label = args.reference or "pyphi+bruteforce"
-    algo_label = args.algo or "qnodes+geomip"
+    algo_label = args.algo or "+".join(_ALGOS)
 
     print(f"\n{'='*72}")
     print(f"  run_all_states — {total} combinaciones")

@@ -5,7 +5,7 @@ from typing import Optional
 
 import pandas as pd
 
-from tests.models import TestCase
+from tests.core.models import TestCase
 
 _HOJA_POR_N: dict[int, int] = {5: 1, 8: 2, 10: 3, 15: 4, 20: 5, 22: 6, 25: 7}
 _ABECEDARY = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"

@@ -6,9 +6,9 @@ from typing import Optional
 
 import numpy as np
 
-from tests.models import PartitionResult
+from tests.core.models import PartitionResult
 
-_CACHE_FILE = Path(__file__).parent / "data" / "pyphi_cache.json"
+_CACHE_FILE = Path(__file__).parent.parent / "data" / "pyphi_cache.json"
 _ESTRATEGIA_PYPHI = "Pyphi"
 
 
@@ -34,8 +34,9 @@ class PyPhiCache:
         estado_inicial: str,
         alcance_bin: str,
         mecanismo_bin: str,
+        partition_type: str = "BI",
     ) -> str:
-        return f"{n_nodes}|{tpm_page}|{estado_inicial}|{alcance_bin}|{mecanismo_bin}"
+        return f"{n_nodes}|{tpm_page}|{estado_inicial}|{alcance_bin}|{mecanismo_bin}|{partition_type}"
 
     def _load(self) -> dict[str, dict]:
         if self._path.exists():
@@ -61,9 +62,10 @@ class PyPhiCache:
         estado_inicial: str,
         alcance_bin: str,
         mecanismo_bin: str,
+        partition_type: str = "BI",
     ) -> Optional[PartitionResult]:
         """Return cached PyPhi result or None if not present."""
-        key = self._make_key(n_nodes, tpm_page, estado_inicial, alcance_bin, mecanismo_bin)
+        key = self._make_key(n_nodes, tpm_page, estado_inicial, alcance_bin, mecanismo_bin, partition_type)
         entry = self._store.get(key)
         if entry is None:
             return None
@@ -84,9 +86,10 @@ class PyPhiCache:
         alcance_bin: str,
         mecanismo_bin: str,
         result: PartitionResult,
+        partition_type: str = "BI",
     ) -> None:
         """Store a PyPhi result in memory until save() is called."""
-        key = self._make_key(n_nodes, tpm_page, estado_inicial, alcance_bin, mecanismo_bin)
+        key = self._make_key(n_nodes, tpm_page, estado_inicial, alcance_bin, mecanismo_bin, partition_type)
         self._store[key] = {
             "perdida": float(result.perdida),
             "particion": result.particion,

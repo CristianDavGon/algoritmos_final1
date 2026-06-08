@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from typing import Optional
 
-from tests.models import BenchmarkReport, PartitionResult, RunRecord, TestCase
+from tests.core.models import BenchmarkReport, PartitionResult, RunRecord, TestCase
 
 TOL_PHI_DEFAULT: float = 1e-4
 
@@ -64,7 +64,22 @@ def _particiones_iguales(p1: str, p2: str) -> bool:
 
 
 def _canonical_partition(text: str) -> frozenset[frozenset[str]]:
-    # QNodes format: ⎛purv0⎞⎛purv1⎞ / ⎝mec0⎠⎝mec1⎠
+    # k≥3 format: "⎛A⎞ / ⎝∅⎠ | ⎛B, C⎞ / ⎝∅⎠ | ⎛D⎞ / ⎝∅⎠"
+    # Detected by ⎛ + ' | ' (space-pipe-space delimiter between parts)
+    if '⎛' in text and ' | ' in text:
+        parts = text.split(' | ')
+        result = []
+        for part in parts:
+            nodes = re.findall(r'⎛([^⎞]*)⎞', part)
+            combined = frozenset(
+                e.strip().lower()
+                for s in nodes
+                for e in s.split(',')
+                if e.strip() and e.strip() != '∅'
+            )
+            result.append(combined)
+        return frozenset(result)
+    # QNodes bipartition format: ⎛purv0⎞⎛purv1⎞ / ⎝mec0⎠⎝mec1⎠
     if '⎛' in text:
         tops = re.findall(r'⎛([^⎞]*)⎞', text)
         bottoms = re.findall(r'⎝([^⎠]*)⎠', text)
@@ -85,7 +100,26 @@ def _canonical_partition(text: str) -> frozenset[frozenset[str]]:
             parts.append(frozenset({purv, mech}))
         return frozenset(parts)
     # PyPhi format: row0 = | purv_L || purv_R |, row1 = | mec_L || mec_R |
+    # k≥3: row0 = | purv_0 || purv_1 || purv_2 |, etc.
     lines = [ln.strip() for ln in text.strip().splitlines() if '||' in ln]
+    if not lines:
+        return frozenset()
+    # k≥3: each line encodes all parts; aggregate columns across lines
+    first_line = lines[0]
+    n_parts = first_line.count('||') + 1
+    if n_parts >= 3 or len(lines) == 1:
+        # Represent each column (part) as union of nodes across all lines
+        result = []
+        for ln in lines:
+            cols = [c.strip().strip('|').strip() for c in ln.split('||')]
+            for i, col in enumerate(cols):
+                nodes = frozenset(e.strip().lower() for e in col.split(',') if e.strip() and e.strip() != '∅')
+                if i < len(result):
+                    result[i] = result[i] | nodes
+                else:
+                    result.append(nodes)
+        return frozenset(result)
+    # Bipartition (2 parts, 2 lines)
     if len(lines) < 2:
         return frozenset()
 

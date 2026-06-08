@@ -5,6 +5,8 @@ import numpy as np
 import pandas as pd
 
 from src.controllers.manager import Manager
+from src.models.base.application import aplicacion
+from src.reporter import guardar_markdown
 from src.strategies.qnodes import QNodes
 
 
@@ -97,15 +99,23 @@ def ejecutar_desde_excel(
         writer = csv.DictWriter(f, fieldnames=["Prueba", "Alcance", "Mecanismo", "Partición", "Pérdida (φ)", "Tiempo (s)"])
         writer.writeheader()
         writer.writerows(resultados)
-    print(f"Resultados guardados en {ruta_salida}")
+    print(f"  CSV: {ruta_salida}")
+    ruta_md = guardar_markdown(resultados, ruta_salida.with_suffix(".md"), "QNodes", estado_inicio)
+    print(f"  MD:  {ruta_md}")
 
 
-def iniciar():
-    """Punto de entrada principal: procesa DatosPruebas2026_1.xlsx."""
+def iniciar(estado: str) -> None:
+    """Punto de entrada principal: procesa DatosPruebas2026_1.xlsx.
+
+    Args:
+        estado: String binario que define el estado inicial s(t).
+                Su longitud determina n (ej. "10000" → n=5).
+    """
     project_root = Path(__file__).resolve().parents[2]
     ruta_excel = project_root / "data" / "DatosPruebas2026_1.xlsx"
-    estado_inicio = "1" + "0" * 19
-    n = len(estado_inicio)
-    ruta_salida = RESULTS_DIR / f"resultados_N{n}A.csv"
+    muestra = aplicacion.pagina_red_muestra
 
-    ejecutar_desde_excel(ruta_excel, ruta_salida, estado_inicio)
+    n = len(estado)
+    ruta_salida = RESULTS_DIR / f"resultado__N{n}_{muestra}.csv"
+
+    ejecutar_desde_excel(ruta_excel, ruta_salida, estado)

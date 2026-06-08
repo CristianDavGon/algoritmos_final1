@@ -89,8 +89,9 @@ Verificar que el código existente funciona correctamente antes de extenderlo. C
 
 ## Fase 3 — Extensión KQNodes (k-particiones submodular)
 
-**Estado**: 🟡 EN CURSO
+**Estado**: ✅ COMPLETADA
 **Inicio**: 2026-06-07
+**Cierre**: 2026-06-07
 
 ### Descripción
 Extender QNodes al caso k-particiones con k ∈ {2,3,4,5}, reutilizando el oracle y MAO existentes. **Se prioriza KQNodes sobre KGeoMIP** por su mejor complejidad algorítmica (O(k·D³) extendible iterativamente) y por no tener los problemas de escalabilidad de la tabla de transiciones geométrica (ver DEC-10). El criterio de selección es **C4 (corte marginal mínimo)**: bipartir la parte cuyo mejor corte es el más barato — el único criterio alineado con minimizar Φ. Ver DEC-12 corregido.

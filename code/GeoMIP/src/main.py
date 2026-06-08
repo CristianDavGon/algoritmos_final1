@@ -12,6 +12,8 @@ import pandas as pd
 import os
 from pathlib import Path
 
+from src.reporter import guardar_markdown
+
 
 METHOD2_ROOT = Path(__file__).resolve().parents[1]
 GEOMIP_ROOT = Path(__file__).resolve().parents[1]
@@ -157,7 +159,9 @@ def ejecutar_desde_excel(
     df_resultados = pd.DataFrame(resultados)
     ruta_salida.parent.mkdir(parents=True, exist_ok=True)
     df_resultados.to_csv(ruta_salida, index=False, encoding="utf-8")
-    print(f"Resultados guardados en {ruta_salida}")
+    print(f"  CSV: {ruta_salida}")
+    ruta_md = guardar_markdown(resultados, ruta_salida.with_suffix(".md"), "GeoMIP", estado_inicio)
+    print(f"  MD:  {ruta_md}")
 
 def iniciar():
     ruta_entrada = Path(

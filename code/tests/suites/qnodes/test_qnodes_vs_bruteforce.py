@@ -1,13 +1,13 @@
 """QNodes vs BruteForce benchmark.
 
 BruteForce actúa como oráculo de referencia (ground-truth) en lugar de PyPhi.
-Usar solo para n <= 6 porque BruteForce es exponencial en tiempo.
+Usar solo para n <= 8 porque BruteForce es exponencial en tiempo.
 
 Run standalone (from code/ directory):
-    python tests/test_qnodes_vs_bruteforce.py
+    python tests/suites/qnodes/test_qnodes_vs_bruteforce.py
 
 Run via pytest (separate invocation — do NOT combine with test_geomip_vs_bruteforce.py):
-    pytest tests/test_qnodes_vs_bruteforce.py -v -s
+    pytest tests/suites/qnodes/test_qnodes_vs_bruteforce.py -v -s
 
 IMPORTANT: Both QNodes and GeoMIP use `src.*` as their root package.
 Running both test files in the same pytest process causes import shadowing.
@@ -16,20 +16,20 @@ Always invoke them as separate pytest commands.
 CONFIGURATION
 ─────────────
 Edit the constants below to change network size, page, or number of tests.
-ESTADO_INICIO length determines N (number of nodes). Use N <= 6 with BruteForce.
+ESTADO_INICIO length determines N (number of nodes). Use N <= 8 with BruteForce.
 """
 from __future__ import annotations
 
 import sys
 from pathlib import Path
 
-_TESTS_ROOT = Path(__file__).resolve().parent
+_TESTS_ROOT = Path(__file__).resolve().parents[2]
 _CODE_ROOT = _TESTS_ROOT.parent
 if str(_CODE_ROOT) not in sys.path:
     sys.path.insert(0, str(_CODE_ROOT))
 
 # ─── CONFIGURE HERE ───────────────────────────────────────────────────────────
-ESTADO_INICIO: str = "1" + "0" * 4  # length = N nodes — use N <= 6 with BruteForce
+ESTADO_INICIO: str = "1" + "0" * 7  # length = N nodes — use N <= 8 with BruteForce
 PAGINA: str = "A"
 N_TESTS: int | None = None        # None = all test cases from Excel (~49)
 TOL_PHI: float = 1e-9
@@ -39,11 +39,10 @@ import numpy as np
 
 from tests.adapters.qnodes_adapter import QNodesAdapter
 from tests.adapters.bruteforce_adapter import QNodesBruteForceAdapter
-from tests.cache import PyPhiCache
-from tests.excel_loader import cargar_casos
-from tests.runners.benchmark import BenchmarkRunner
+from tests.core.cache import PyPhiCache
+from tests.core.excel_loader import cargar_casos
+from tests.core.runner import BenchmarkRunner
 
-_PROJECT_ROOT = _CODE_ROOT.parent
 _EXCEL_PATH = _CODE_ROOT / "data" / "DatosPruebas2026_1.xlsx"
 _QNODES_ROOT = _CODE_ROOT / "QNodes"
 _SAMPLES_DIR = _QNODES_ROOT / "src" / ".samples"

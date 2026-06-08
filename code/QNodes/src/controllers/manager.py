@@ -62,18 +62,6 @@ class Manager:
 
     def cargar_red(self) -> np.ndarray:
         dataset = np.genfromtxt(self.tpm_filename, delimiter=COLON_DELIM)
-        """
-        Optimización de carga:
-        1. Usa np.loadtxt o mejor aún, memoria mapeada si el archivo es gigante.
-        2. Fuerza dtype=np.int8 para reducir el consumo de 6.7GB a 0.8GB.
-        """
-        # np.int8 es suficiente para datos binarios (0 y 1)
-        # Esto reduce el consumo de RAM de la TPM en un 87.5%
-        dataset = np.loadtxt(
-            self.tpm_filename, 
-            delimiter=COLON_DELIM, 
-            dtype=np.int8
-        )
         return dataset
 
     def generar_red(self, dimensiones: int, datos_deterministas: bool = True) -> str:

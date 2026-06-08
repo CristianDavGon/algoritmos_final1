@@ -1,10 +1,10 @@
 """Generic single-run benchmark driver.
 
 Usage (from the code/ directory):
-    python tests/run_benchmark.py --algo qnodes  --estado 10000 --pagina A
-    python tests/run_benchmark.py --algo geomip  --estado 10000 --pagina A
-    python tests/run_benchmark.py --algo qnodes  --estado 10000 --pagina A --reference bruteforce
-    python tests/run_benchmark.py --algo qnodes  --estado 10000 --pagina A --n-tests 5
+    python tests/core/run_benchmark.py --algo qnodes  --estado 10000 --pagina A
+    python tests/core/run_benchmark.py --algo geomip  --estado 10000 --pagina A
+    python tests/core/run_benchmark.py --algo qnodes  --estado 10000 --pagina A --reference bruteforce
+    python tests/core/run_benchmark.py --algo qnodes  --estado 10000 --pagina A --n-tests 5
 
 --reference pyphi      (default) compare against PyPhi
 --reference bruteforce           compare against BruteForce (use only N <= 6)
@@ -18,19 +18,21 @@ import argparse
 import sys
 from pathlib import Path
 
-_TESTS_ROOT = Path(__file__).resolve().parent
+_TESTS_ROOT = Path(__file__).resolve().parents[1]
 _CODE_ROOT = _TESTS_ROOT.parent
 if str(_CODE_ROOT) not in sys.path:
     sys.path.insert(0, str(_CODE_ROOT))
 
 import numpy as np
 
-from tests.cache import PyPhiCache
-from tests.excel_loader import cargar_casos
-from tests.runners.benchmark import BenchmarkRunner
+from tests.core.cache import PyPhiCache
+from tests.core.excel_loader import cargar_casos
+from tests.core.runner import BenchmarkRunner
 
-_EXCEL_PATH = _CODE_ROOT / "data" / "DatosPruebas2026_1.xlsx"
-_BRUTEFORCE_CACHE = _CODE_ROOT / "tests" / "data" / "bruteforce_cache.json"
+_EXCEL_PATH       = _CODE_ROOT / "data" / "DatosPruebas2026_1.xlsx"
+_DATA_DIR         = _CODE_ROOT / "tests" / "data"
+_BRUTEFORCE_CACHE = _DATA_DIR / "bruteforce_cache.json"
+_PYPHI_BI_CACHE   = _DATA_DIR / "pyphi_cache.json"
 
 
 def _load_tpm_qnodes(n: int, pagina: str) -> np.ndarray:

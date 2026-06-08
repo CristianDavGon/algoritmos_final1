@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 
 from tests.adapters.base import PyPhiAdapter
-from tests.models import PartitionResult, TestCase
+from tests.core.models import PartitionResult, TestCase
 
 _QNODES_ROOT = Path(__file__).resolve().parents[2] / "QNodes"
 _GEOMIP_ROOT = Path(__file__).resolve().parents[2] / "GeoMIP"

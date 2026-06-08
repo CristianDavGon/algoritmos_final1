@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 
 import numpy as np
 
-from tests.models import PartitionResult, TestCase
+from tests.core.models import PartitionResult, TestCase
 
 
 class StrategyAdapter(ABC):
@@ -41,6 +41,11 @@ class PyPhiAdapter(ABC):
     Separate from StrategyAdapter because each module (QNodes, GeoMIP) has
     its own PyPhi wrapper with a different call signature.
     """
+
+    @property
+    def partition_type(self) -> str:
+        """PARTITION_TYPE used for PyPhi calls. Included in cache key."""
+        return "BI"
 
     @abstractmethod
     def run(self, test_case: TestCase, tpm: np.ndarray) -> PartitionResult:

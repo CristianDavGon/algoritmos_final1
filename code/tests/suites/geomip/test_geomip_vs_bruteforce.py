@@ -1,13 +1,13 @@
 """GeoMIP (GeometricSIA) vs BruteForce benchmark.
 
 BruteForce actúa como oráculo de referencia (ground-truth) en lugar de PyPhi.
-Usar solo para n <= 6 porque BruteForce es exponencial en tiempo.
+Usar solo para n <= 8 porque BruteForce es exponencial en tiempo.
 
 Run standalone (from code/ directory):
-    python tests/test_geomip_vs_bruteforce.py
+    python tests/suites/geomip/test_geomip_vs_bruteforce.py
 
 Run via pytest (separate invocation):
-    pytest tests/test_geomip_vs_bruteforce.py -v -s
+    pytest tests/suites/geomip/test_geomip_vs_bruteforce.py -v -s
 
 IMPORTANT: Both QNodes and GeoMIP use `src.*` as their root package.
 Running both test files in the same pytest process causes import shadowing.
@@ -16,20 +16,20 @@ Always invoke them as separate pytest commands.
 CONFIGURATION
 ─────────────
 Edit the constants below to change network size, page, or number of tests.
-ESTADO_INICIO length determines N (number of nodes). Use N <= 6 with BruteForce.
+ESTADO_INICIO length determines N (number of nodes). Use N <= 8 with BruteForce.
 """
 from __future__ import annotations
 
 import sys
 from pathlib import Path
 
-_TESTS_ROOT = Path(__file__).resolve().parent
+_TESTS_ROOT = Path(__file__).resolve().parents[2]
 _CODE_ROOT = _TESTS_ROOT.parent
 if str(_CODE_ROOT) not in sys.path:
     sys.path.insert(0, str(_CODE_ROOT))
 
 # ─── CONFIGURE HERE ───────────────────────────────────────────────────────────
-ESTADO_INICIO: str = "10000000" # length = N nodes — use N <= 6 with BruteForce
+ESTADO_INICIO: str = "10000000"  # length = N nodes — use N <= 8 with BruteForce
 PAGINA: str = "A"
 N_TESTS: int | None = None        # None = all test cases from Excel (~49)
 TOL_PHI: float = 1e-9
@@ -39,9 +39,9 @@ import numpy as np
 
 from tests.adapters.geomip_adapter import GeoMIPAdapter
 from tests.adapters.bruteforce_adapter import GeoMIPBruteForceAdapter
-from tests.cache import PyPhiCache
-from tests.excel_loader import cargar_casos
-from tests.runners.benchmark import BenchmarkRunner
+from tests.core.cache import PyPhiCache
+from tests.core.excel_loader import cargar_casos
+from tests.core.runner import BenchmarkRunner
 
 _EXCEL_PATH = _CODE_ROOT / "data" / "DatosPruebas2026_1.xlsx"
 _GEOMIP_ROOT = _CODE_ROOT / "GeoMIP"

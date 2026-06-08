@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import csv
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-from tests.models import BenchmarkReport, RunRecord
+from tests.core.models import BenchmarkReport, RunRecord
 
-_RESULTS_ROOT = Path(__file__).parent / "results"
+_RESULTS_ROOT = Path(__file__).parent.parent / "results"
 
 _STRATEGY_SUBDIR: dict[str, str] = {
     "qnodes": "qnodes",
@@ -16,8 +17,16 @@ _STRATEGY_SUBDIR: dict[str, str] = {
 
 
 def _results_dir(strategy_name: str, reference_name: str = "pyphi") -> Path:
-    subdir = _STRATEGY_SUBDIR.get(strategy_name.lower(), strategy_name.lower())
+    name_lower = strategy_name.lower()
+    if name_lower.startswith("kgeomip"):
+        subdir = "kgeomip"
+    else:
+        subdir = _STRATEGY_SUBDIR.get(name_lower, name_lower)
     return _RESULTS_ROOT / subdir / f"vs_{reference_name.lower()}"
+
+
+def _sanitize_name(name: str) -> str:
+    return re.sub(r"[^\w]+", "_", name.lower()).strip("_")
 
 
 def _base_stem(report: BenchmarkReport) -> str:
@@ -29,7 +38,7 @@ def _base_stem(report: BenchmarkReport) -> str:
         f"N{report.n_nodes}{page}"
         f"_estado{estado}"
         f"_sample{page}"
-        f"_{report.strategy_name.lower()}_vs_{ref}_{date_str}"
+        f"_{_sanitize_name(report.strategy_name)}_vs_{ref}_{date_str}"
     )
 
 

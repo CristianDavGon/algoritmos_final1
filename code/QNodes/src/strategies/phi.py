@@ -91,16 +91,29 @@ class Phi(SIA):
             repertorio.put(sub_estados, repertorio)
             repertorio_partido.put(sub_estados, repertorio_partido)
 
-            mejor_biparticion: Bipartition = mip.partition
-            prim: Part = mejor_biparticion.parts[True]
-            dual: Part = mejor_biparticion.parts[False]
-
-            prim_mech, prim_purv = prim.mechanism, prim.purview
-            dual_mech, dual_purv = dual.mechanism, dual.purview
-            format = fmt_biparticion_fuerza_bruta(
-                [dual_mech, dual_purv],
-                [prim_mech, prim_purv],
-            )
+            partition_obj = mip.partition
+            try:
+                # Ruta BI: bipartición clásica con partes True/False
+                prim: Part = partition_obj.parts[True]
+                dual: Part = partition_obj.parts[False]
+                format = fmt_biparticion_fuerza_bruta(
+                    [dual.mechanism, dual.purview],
+                    [prim.mechanism, prim.purview],
+                )
+            except (TypeError, KeyError, AttributeError):
+                # Ruta ALL/multi-partición: formatear dinámicamente
+                try:
+                    raw_parts = (
+                        list(partition_obj.parts.values())
+                        if hasattr(partition_obj.parts, "values")
+                        else list(partition_obj.parts)
+                    )
+                    format = " | ".join(
+                        f"({','.join(str(n) for n in p.mechanism)})/({','.join(str(n) for n in p.purview)})"
+                        for p in raw_parts
+                    )
+                except Exception:
+                    format = DUMMY_PARTITION
 
         return Solution(
             estrategia=PYPHI_LABEL,

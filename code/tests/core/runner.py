@@ -6,10 +6,10 @@ import sys
 import numpy as np
 
 from tests.adapters.base import PyPhiAdapter, StrategyAdapter
-from tests.cache import PyPhiCache
-from tests.metrics import agregar_reporte, compute_run_record
-from tests.models import BenchmarkReport, TestCase
-from tests.reporter import guardar_csv, guardar_markdown, imprimir_resumen
+from tests.core.cache import PyPhiCache
+from tests.core.metrics import agregar_reporte, compute_run_record
+from tests.core.models import BenchmarkReport, TestCase
+from tests.reporting.reporter import guardar_csv, guardar_markdown, imprimir_resumen
 
 
 class BenchmarkRunner:
@@ -66,9 +66,11 @@ class BenchmarkRunner:
         ref_label = self._reference_name.upper()
         print(f"\n  Ejecutando {self._strategy.strategy_name} vs {ref_label}  —  N{n_nodes}{tpm_page}  ({total} casos)\n")
 
+        pt = getattr(self._pyphi, "partition_type", "BI")
         for tc in test_cases:
             cached = self._cache.get(
-                n_nodes, tpm_page, tc.estado_inicial, tc.alcance_bin, tc.mecanismo_bin
+                n_nodes, tpm_page, tc.estado_inicial, tc.alcance_bin, tc.mecanismo_bin,
+                partition_type=pt,
             )
             from_cache = cached is not None
 
@@ -82,6 +84,7 @@ class BenchmarkRunner:
                         tc.alcance_bin,
                         tc.mecanismo_bin,
                         ref_result,
+                        partition_type=pt,
                     )
             else:
                 ref_result = cached

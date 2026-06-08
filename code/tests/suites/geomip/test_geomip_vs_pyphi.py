@@ -1,10 +1,10 @@
 """GeoMIP (GeometricSIA) vs PyPhi benchmark.
 
 Run standalone (from code/ directory):
-    python tests/test_geomip_vs_pyphi.py
+    python tests/suites/geomip/test_geomip_vs_pyphi.py
 
 Run via pytest (separate invocation — do NOT combine with test_qnodes_vs_pyphi.py):
-    pytest tests/test_geomip_vs_pyphi.py -v -s
+    pytest tests/suites/geomip/test_geomip_vs_pyphi.py -v -s
 
 IMPORTANT: Both QNodes and GeoMIP use `src.*` as their root package.
 Running both test files in the same pytest process causes import shadowing.
@@ -20,7 +20,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-_TESTS_ROOT = Path(__file__).resolve().parent
+_TESTS_ROOT = Path(__file__).resolve().parents[2]
 _CODE_ROOT = _TESTS_ROOT.parent
 if str(_CODE_ROOT) not in sys.path:
     sys.path.insert(0, str(_CODE_ROOT))
@@ -35,9 +35,9 @@ TOL_PHI: float = 1e-4
 import numpy as np
 
 from tests.adapters.geomip_adapter import GeoMIPAdapter, GeoMIPPyPhiAdapter
-from tests.cache import PyPhiCache
-from tests.excel_loader import cargar_casos
-from tests.runners.benchmark import BenchmarkRunner
+from tests.core.cache import PyPhiCache
+from tests.core.excel_loader import cargar_casos
+from tests.core.runner import BenchmarkRunner
 
 _EXCEL_PATH = _CODE_ROOT / "data" / "DatosPruebas2026_1.xlsx"
 _GEOMIP_ROOT = _CODE_ROOT / "GeoMIP"
