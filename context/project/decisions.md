@@ -155,25 +155,37 @@ Decisiones globales tomadas en el proyecto, con su justificación. Solo se regis
 
 ---
 
-## DEC-14: Generación de k-particiones candidatas en KGeoMIP — Stirling para n≤6, hill-climbing para n>6
+## DEC-14: Heurística de KGeoMIP — E4 (refinamiento divisivo top-down anclado en GeoMIP)
 
-**Decisión**: Las candidatas se generan como asignaciones de las n dimensiones del hipercubo a k grupos. Modo exhaustivo (n≤6): todas las S(n,k) particiones de Stirling via Knuth. Modo heurístico (n>6): solución greedy de KQNodes como semilla + búsqueda local por intercambio dimensional (hill-climbing).
+**Decisión**: KGeoMIP usa la heurística **E4**: refinamiento divisivo (top-down) guiado por la matriz de similitud S derivada de T, con la EMD vía T confirmando cada corte (criterio de corte marginal mínimo, min ΔΦ), y el primer corte k=2 anclado en GeoMIP exacto.
 
-**Por qué**: `NCube.marginalizar(ejes)` ya colapsa dimensiones arbitrarias; el producto tensorial de k marginales construye la distribución particionada. La tabla de costos de `calcular_costo` en `geometric.py` (líneas 130-162) no requiere modificaciones — solo cambia la agrupación de dimensiones al momento de calcular las marginales.
+**⚠️ Corrección respecto a versión anterior (2026-06-08)**: La versión anterior (Stirling para n≤6, hill-climbing basado en KQNodes para n>6) fue descartada porque no cumple las dos reglas duras del diseño:
+1. **Regresión k=2**: el corte del hill-climbing en k=2 no coincide en general con GeoMIP (mecanismos distintos).
+2. **Monotonicidad anidada**: hill-climbing no produce una familia anidada, por lo que φ(k+1) ≥ φ(k) no se garantiza por construcción.
 
-**Pseudocódigo**:
+**Por qué E4**: es la única estrategia que cumple ambas reglas duras por construcción:
+- k=2 ancla en GeoMIP exacto (Fase 2 del pseudocódigo delega directamente en `GeoMIP_bipartir`).
+- Refinamiento divisivo (cada nivel refina el anterior) ⟹ familia anidada ⟹ monotonicidad φ(k+1) ≥ φ(k) gratuita.
+- Conserva S como dispositivo central (firma de KGeoMIP): S propone cortes baratos globalmente; EMD los confirma localmente.
+- Mismo presupuesto O(n²·2ⁿ) que la versión anterior pero con garantías de regresión y monotonicidad.
+
+**Flujo de E4**:
 ```
-Candidatas_KGeoMIP(sistema, k):
-    para cada partición {D1, ..., Dk} de las n dimensiones:
-        dist_particionada = ⊗ [sistema.marginalizar(dims ∖ Di) para cada Di]
-        phi_k = emd_efecto(sistema.distribucion_marginal(), dist_particionada)
-    retornar partición con mínima phi_k
+FASE 0: k=1 → {V}, Φ=0
+FASE 1: construir S desde T (O(n²·2ⁿ), una sola vez)
+FASE 2: k=2 → GeoMIP(V, T) exacto (regresión k=2 por construcción)
+FASE 3: para j=3..k → MinHeap por ΔΦ; MejorCorte(P, T, S) propone con S, confirma con EMD
+FASE 4: Φ* = EMD(p(s_{t+1}), ⊗_{Pi} p_{Pi}) una sola vez al final
 ```
 
-**Dependencia**: DEC-11 define la función objetivo que este generador minimiza. La solución del modo heurístico de KQNodes (DEC-12) actúa como semilla caliente para el hill-climbing.
+**Estrategia A (clustering jerárquico aglomerativo sobre S)**: conservada como **línea base de comparación A/B** para los resultados experimentales. No es la respuesta final porque no garantiza regresión k=2 exacta ni monotonicidad anidada por construcción. Ver D4-01 en `context/SDD-4/decisions.md`.
+
+**Marginalización**: columnas fuera de Pₘ se **SUMAN** (eventos mutuamente excluyentes); filas de variables descartadas se **PROMEDIAN** (equiprobabilidad). No se normaliza. ⊗ del proyecto expande solo columnas (no Kronecker).
+
+**Dependencia**: DEC-11 define la función objetivo → DEC-12 (KQNodes) y DEC-14 (KGeoMIP) la minimizan por caminos distintos (MAO iterativo vs. divisivo geométrico con S). DEC-13 provee ground-truth BruteForce para medir la calidad de ambas heurísticas en sistemas pequeños.
 
 ---
 
 ## Dependencias entre DEC-11 a DEC-14
 
-DEC-11 define la función objetivo → DEC-12 y DEC-14 la minimizan por caminos distintos (MAO iterativo vs. Stirling/hill-climbing). DEC-13 cierra el ciclo: la búsqueda exhaustiva de DEC-14 sirve como ground-truth para medir la calidad del greedy de DEC-12 en sistemas pequeños.
+DEC-11 define la función objetivo → DEC-12 y DEC-14 la minimizan por caminos distintos (MAO iterativo vs. refinamiento geométrico divisivo E4). DEC-13 cierra el ciclo: la búsqueda exhaustiva (BruteForce-k) sirve como ground-truth para medir el gap de optimalidad de ambas heurísticas en sistemas pequeños (n≤6).

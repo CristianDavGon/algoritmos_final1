@@ -48,15 +48,18 @@ Decisiones que deben resolverse durante esta fase para desbloquear la implementa
 
 **Opciones**:
 - **A) BruteForce propio**: implementar búsqueda exhaustiva de k-particiones para n≤6 y comparar.
-- **B) Consistencia interna**: verificar que φ(k+1) ≤ φ(k) para todo k (la partición más fina nunca sube el costo).
+- **B) Consistencia interna**: verificar que φ(k+1) ≥ φ(k) para todo k (más partes ⟹ reconstrucción más factorizada ⟹ mayor EMD).
 - **C) Ambas**: BruteForce para n≤6, consistencia interna para n>6.
 
 **Impacto**: Define los tests de `code/KQNodes/tests/` y `code/KGeoMIP/tests/`.
 
-**Estado**: ✅ Decidido
+**Estado**: ✅ Decidido — **⚠️ Dirección de monotonicidad corregida (2026-06-08)**
 
 **Respuesta**:
-> **Opción C — Ambas**: BruteForce exhaustivo para n≤6 y consistencia interna (`φ(k+1) ≤ φ(k)`) para n>6. El BruteForce para sistemas pequeños da la certeza matemática de que el algoritmo encuentra el óptimo real; la consistencia interna es la única garantía práctica para n>6 donde el BruteForce es computacionalmente inviable. Ya existe infraestructura de BruteForce en `code/GeoMIP/src/controllers/strategies/force.py` y en `code/QNodes/src/strategies/force.py` que se puede extender a k particiones.
+> **Opción C — Ambas**: BruteForce exhaustivo para n≤6 y consistencia interna **φ(k+1) ≥ φ(k)** para n>6. El BruteForce para sistemas pequeños da la certeza matemática de que el algoritmo encuentra el óptimo real; la consistencia interna es la única garantía práctica para n>6 donde el BruteForce es computacionalmente inviable. Ya existe infraestructura de BruteForce en `code/GeoMIP/src/controllers/strategies/force.py` y en `code/QNodes/src/strategies/force.py` que se puede extender a k particiones.
+
+**Corrección de la dirección de monotonicidad** (ver §1.5 del diseño KGeoMIP, §1.4 del diseño KQNodes):
+La opción B original enunciaba φ(k+1) ≤ φ(k) — **esto es incorrecto**. La dirección correcta es **φ(k+1) ≥ φ(k)**. Bajo la definición del proyecto (Φ = EMD entre el sistema y su reconstrucción ⊗, con Φ=0 ⟺ separable), más partes ⟹ reconstrucción más factorizada ⟹ más lejos del original ⟹ mayor pérdida. Casos extremos: k=1 da Φ=0 (sin corte); k=n da Φ máximo (cada variable su propia parte). El assert en los tests debe ser `φ(k+1) ≥ φ(k) − ε`, **nunca** `≤`. Un assert con ≤ aprobaría implementaciones incorrectas y reprobaría implementaciones correctas.
 
 ---
 

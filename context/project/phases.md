@@ -122,27 +122,39 @@ Extender QNodes al caso k-particiones con k ∈ {2,3,4,5}, reutilizando el oracl
 
 ## Fase 4 — Extensión KGeoMIP (k-particiones geométrica)
 
-**Estado**: 🔴 PENDIENTE
+**Estado**: 🟡 EN CURSO
+**Inicio**: 2026-06-08
+**Cierre**: —
 
 ### Descripción
-Extender GeoMIP al caso k-particiones con `k ∈ {2, 3, 4, 5}`, reutilizando la infraestructura de N-Cubos y la tabla de transiciones. Se implementa después de KQNodes dado que la tabla de transiciones tiene limitaciones de escalabilidad para k>2 (R-03).
+Extender GeoMIP al caso k-particiones con k ∈ {2,3,4,5} usando la heurística **E4**: refinamiento divisivo top-down anclado en GeoMIP (k=2 exacto por construcción), con la matriz de similitud S derivada de T como guía global y la EMD vía T para confirmar cada corte (criterio de corte marginal mínimo, min ΔΦ). Se implementa después de KQNodes. La firma de KGeoMIP es la matriz S — lo que la distingue de KQNodes.
 
 ### Tareas
 
-1. **Diseño**: definir cómo generar k-particiones candidatas desde los N-Cubos. [PENDIENTE: confirmar estrategia de partición del hipercubo para k > 2]
-2. **Modelo `KPartition`**: clase para representar k-particiones con `k` partes disjuntas.
-3. **`KGeoMIP`**: implementa `aplicar_estrategia()` para k > 2, reutilizando `tabla_transiciones`.
-4. **Cache de tabla T**: garantizar que T se calcule una sola vez por sistema independientemente de k.
-5. **Tests de regresión**: `KGeoMIP(k=2) == GeoMIP`, `|φ_nuevo - φ_viejo| < 1e-9`.
-6. **Tests unitarios**: generación de k-particiones, cálculo de φ, distancia Jaccard.
-7. **Resultados experimentales**: CSV para k ∈ {2,3,4,5}, n ∈ {5,8,10}.
+1. **Pre-requisito**: verificar la función EMD de GeoMIP en producción (caveat D4-04) antes de cualquier test.
+2. **Construir S**: matriz de similitud n×n desde T, una sola vez por sistema: `S[Xᵢ][Xⱼ] = (sim(Xᵢ,Xⱼ) + sim(Xⱼ,Xᵢ)) / 2`, con `sim(Xᵢ,Xⱼ) = Σ_{δ: bit Xⱼ activo} T[Xᵢ][δ]`.
+3. **`KGeoMIP(SIA).aplicar_estrategia(k)`**: heurística E4 completa (Fases 0-4 del pseudocódigo); recibe Manager como GeoMIP.
+4. **Anclaje k=2**: delegar exactamente en `GeoMIP_bipartir(V, T)` sin pasos adicionales (regresión por construcción).
+5. **MinHeap por min ΔΦ**: cola de prioridad con clave `(ΔΦ, bfs_order, |P|, min_idx(P))`; subrutina MejorCorte (S propone + candidatos BFS GeoMIP; EMD confirma).
+6. **Marginalización correcta**: columnas SUMAR; filas descartadas PROMEDIAR; sin normalizar; ⊗ del proyecto (expande columnas, no Kronecker).
+7. **EMD final**: una sola llamada al final sobre la distribución completa reconstruida.
+8. **Estrategia A (baseline)**: clustering aglomerativo sobre S para A/B testing.
+9. **Tests de regresión**: `KGeoMIP(k=2) == GeoMIP` para n ∈ {5,8,10}, tolerancia 1e-9.
+10. **Tests de monotonicidad**: `φ(k+1) ≥ φ(k)` para k ∈ {2,3,4} — dirección **≥**, no ≤.
+11. **Gap vs BruteForce**: gap = φ_E4 − φ* ≥ 0 y tasa de acierto exacto para k ∈ {3,4}, n ≤ 6.
+12. **A/B testing E4 vs Estrategia A**: comparar gap medio y % acierto para k ∈ {3,4}.
+13. **Resultados experimentales**: CSV para k ∈ {2,3,4,5}, n ∈ {5,8,10}, incluyendo Φ(k) y ΔΦ(k).
 
 ### Criterio de DONE
-- Regresión k=2 pasa.
-- Cobertura ≥ 85%.
-- Tipado completo.
-- Docstrings en todos los métodos públicos.
-- Al menos un CSV de resultados generado.
+- **Regresión k=2**: KGeoMIP(k=2) == GeoMIP para n ∈ {5,8,10}, tolerancia 1e-9.
+- **Monotonicidad**: φ(k+1) ≥ φ(k) para k ∈ {2,3,4} — assert con dirección correcta ≥.
+- **Gap de optimalidad**: φ_E4 − φ* ≥ 0 medido y tasa de acierto exacto reportada para k ∈ {3,4}, n ≤ 6 (no exigir igualdad exacta).
+- **A/B testing E4 vs Estrategia A**: ejecutado y comparación documentada para k ∈ {3,4}.
+- **Función EMD consistente**: verificada como la misma que usa GeoMIP en producción.
+- **CSV de resultados** para k ∈ {2,3,4,5}, n ∈ {5,8,10} generados (con Φ(k) y ΔΦ(k)).
+- Cobertura ≥ 85% en módulo KGeoMIP.
+- Tipado completo (mypy) y docstrings en todos los métodos públicos.
+- Ver criterios completos en `context/SDD-4/done-criteria.md`.
 
 ---
 

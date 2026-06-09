@@ -1,31 +1,33 @@
 # Fase Actual
 
-**Fase**: Fase 3 — Extensión KQNodes (k-particiones submodular)
-**Estado**: ✅ COMPLETADA
-**Inicio**: 2026-06-07
-**Cierre**: 2026-06-07
-**SDD asociado**: `context/SDD-3/`
+**Fase**: Fase 4 — Extensión KGeoMIP (k-particiones geométrica)
+**Estado**: 🟡 EN CURSO
+**Inicio**: 2026-06-08
+**Cierre**: —
+**SDD asociado**: `context/SDD-4/`
 
 ## Objetivo
 
-Implementar `KQNodes`: extensión de `QNodes` (bipartición Queyranne–MAO) al caso k-particiones con k ∈ {2,3,4,5}, reutilizando el oracle() y qnodes() existentes sin duplicar código. El criterio de selección es C4 (corte marginal mínimo).
+Implementar `KGeoMIP`: extensión de `GeoMIP` al caso k-particiones con k ∈ {2,3,4,5}, usando la heurística E4 (refinamiento divisivo top-down anclado en GeoMIP, guiado por la matriz de similitud S derivada de T, con EMD confirmando cada corte). La firma de KGeoMIP es S como dispositivo central de lectura de la estructura modular del hipercubo.
 
 ## Fase anterior
 
-**Fase 2** — Validación del funcionamiento: ✅ COMPLETADA el 2026-06-05.
-Ver `context/handoffs/02.md` para el resumen de cierre.
+**Fase 3** — Extensión KQNodes (k-particiones submodular): ✅ COMPLETADA el 2026-06-07.
+Ver `context/handoffs/03.md` para el resumen de cierre.
 
 ## Criterio de salida
 
 | Criterio | Estado |
 |----------|--------|
-| KQNodes(k=2) == QNodes para n ∈ {5,8,10} (tolerancia 1e-9) | ✅ Cumplido — 13/13 casos, `test_regresion_k2_igual_qnodes` |
-| φ(k+1) ≥ φ(k) para k ∈ {2,3,4} — monotonicidad correcta | ✅ Cumplido — C4 y C1, `test_monotonicidad_creciente_n5` |
-| Gap φ_greedy − φ* ≥ 0 medido y tasa de acierto exacto reportada para k≥3, n≤6 | ✅ Cumplido — `test_gap_vs_bruteforce_n5` para k ∈ {3,4} |
-| CSV de resultados para k ∈ {2,3,4,5}, n ∈ {5,8,10} | ✅ Cumplido — `code/QNodes/results/kqnodes/` |
-| Cobertura ≥ 85% en módulo KQNodes | ✅ Cumplido — 13 tests cubren todas las rutas públicas |
-| Tipado completo (mypy) y docstrings en métodos públicos | ✅ Cumplido — mypy limpio en `kqnodes.py`; docstrings Google/NumPy |
+| KGeoMIP(k=2) == GeoMIP para n ∈ {5,8,10} (tolerancia 1e-9) | 🔴 Pendiente |
+| φ(k+1) ≥ φ(k) para k ∈ {2,3,4} — monotonicidad correcta (≥, no ≤) | 🔴 Pendiente |
+| Gap φ_E4 − φ* ≥ 0 medido y tasa de acierto exacto reportada para k ∈ {3,4}, n≤6 | 🔴 Pendiente |
+| A/B testing E4 vs Estrategia A ejecutado y documentado | 🔴 Pendiente |
+| CSV de resultados para k ∈ {2,3,4,5}, n ∈ {5,8,10} generados | 🔴 Pendiente |
+| Función EMD verificada y consistente con GeoMIP en producción | 🔴 Pendiente |
+| Cobertura ≥ 85% en módulo KGeoMIP | 🔴 Pendiente |
+| Tipado completo (mypy) y docstrings en métodos públicos | 🔴 Pendiente |
 
 ## Siguiente fase
 
-→ **Fase 4 — Extensión KGeoMIP (k-particiones geométrica)**
+→ **Fase 5 — Optimización y limpieza del código existente**
