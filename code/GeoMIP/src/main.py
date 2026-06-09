@@ -13,6 +13,7 @@ import os
 from pathlib import Path
 
 from src.reporter import guardar_markdown
+from src.models.base.application import aplicacion
 
 
 METHOD2_ROOT = Path(__file__).resolve().parents[1]
@@ -163,17 +164,18 @@ def ejecutar_desde_excel(
     ruta_md = guardar_markdown(resultados, ruta_salida.with_suffix(".md"), "GeoMIP", estado_inicio)
     print(f"  MD:  {ruta_md}")
 
-def iniciar():
+def iniciar(estado: str | None = None):
     ruta_entrada = Path(
         os.getenv(
             "GEOMIP_INPUT_XLSX",
             str(PROJECT_ROOT / "data" / "DatosPruebas2026_1.xlsx"),
         )
     )
-    estado_inicio = os.getenv("GEOMIP_ESTADO_INICIO", "1" + "0" * 24)
+    estado_inicio = estado or os.getenv("GEOMIP_ESTADO_INICIO", "1" + "0" * 24)
     n = len(estado_inicio)
+    muestra = aplicacion.pagina_sample_network
 
-    ruta_salida_default = str(RESULTS_DIR / f"resultados_N{n}A.csv")
+    ruta_salida_default = str(RESULTS_DIR / f"resultados_N{n}{muestra}.csv")
     ruta_salida = Path(os.getenv("GEOMIP_OUTPUT_CSV", ruta_salida_default))
 
     ejecutar_desde_excel(ruta_entrada, ruta_salida, estado_inicio=estado_inicio)
