@@ -15,9 +15,10 @@ def guardar_markdown(
 
     Args:
         resultados: Lista de dicts usada para el CSV.
-                    Claves: Prueba, Alcance, Mecanismo, Partición, Pérdida (φ), Tiempo (s)
+                    Claves base: Prueba, Alcance, Mecanismo, Partición, Pérdida (φ), Tiempo (s)
+                    Claves KGeoMIP: también k, Criterio
         ruta_md: Ruta de salida del archivo .md.
-        algoritmo: Nombre del algoritmo (ej. "GeoMIP").
+        algoritmo: Nombre del algoritmo (ej. "GeoMIP", "KGeoMIP").
         estado_inicio: String binario del estado inicial.
 
     Returns:
@@ -25,6 +26,7 @@ def guardar_markdown(
     """
     n = len(estado_inicio)
     fecha = datetime.now().strftime("%Y-%m-%d %H:%M")
+    es_kgeomip = bool(resultados) and "k" in resultados[0]
 
     validos = [r for r in resultados if r.get("Pérdida (φ)") is not None]
     con_error = len(resultados) - len(validos)
@@ -67,24 +69,37 @@ def guardar_markdown(
     ]
 
     # ── Tabla de resultados ──────────────────────────────────────────────────
-    lines += [
-        f"## Tabla de resultados",
-        f"",
-        f"| # | Alcance | Mecanismo | Pérdida (φ) | Tiempo (s) |",
-        f"|---|---------|-----------|-------------|------------|",
-    ]
-    for r in resultados:
-        phi = f"{r['Pérdida (φ)']:.6f}" if r.get("Pérdida (φ)") is not None else "ERROR"
-        t = f"{r['Tiempo (s)']:.4f}" if r.get("Tiempo (s)") is not None else "-"
-        lines.append(
-            f"| {r['Prueba']} | {r['Alcance']} | {r['Mecanismo']} | {phi} | {t} |"
-        )
+    lines += [f"## Tabla de resultados", f""]
+    if es_kgeomip:
+        lines += [
+            f"| # | Alcance | Mecanismo | k | Criterio | Pérdida (φ) | Tiempo (s) |",
+            f"|---|---------|-----------|---|----------|-------------|------------|",
+        ]
+        for r in resultados:
+            phi = f"{r['Pérdida (φ)']:.6f}" if r.get("Pérdida (φ)") is not None else "ERROR"
+            t = f"{r['Tiempo (s)']:.4f}" if r.get("Tiempo (s)") is not None else "-"
+            lines.append(
+                f"| {r['Prueba']} | {r['Alcance']} | {r['Mecanismo']} "
+                f"| {r.get('k', '-')} | {r.get('Criterio', '-')} "
+                f"| {phi} | {t} |"
+            )
+    else:
+        lines += [
+            f"| # | Alcance | Mecanismo | Pérdida (φ) | Tiempo (s) |",
+            f"|---|---------|-----------|-------------|------------|",
+        ]
+        for r in resultados:
+            phi = f"{r['Pérdida (φ)']:.6f}" if r.get("Pérdida (φ)") is not None else "ERROR"
+            t = f"{r['Tiempo (s)']:.4f}" if r.get("Tiempo (s)") is not None else "-"
+            lines.append(
+                f"| {r['Prueba']} | {r['Alcance']} | {r['Mecanismo']} | {phi} | {t} |"
+            )
     lines.append("")
 
     # ── Detalle por caso ─────────────────────────────────────────────────────
     lines += [f"## Detalle por caso", f""]
     for r in resultados:
-        _append_caso(lines, r)
+        _append_caso(lines, r, es_kgeomip)
 
     ruta_md.parent.mkdir(parents=True, exist_ok=True)
     ruta_md.write_text("\n".join(lines), encoding="utf-8")
@@ -95,8 +110,8 @@ def fmt_particion_amigable(particion: str | None) -> str:
     """Convierte cualquier string de partición al formato compacto (A,∅) | (B,∅) | ...
 
     Soporta:
-    - GeoMIP bipartición:  |P0||P1|\\n|M0||M1|
-    - QNodes bipartición:  ⎛P0⎞⎛P1⎞\\n⎝M0⎠⎝M1⎠
+    - GeoMIP/QNodes bipartición:  ⎛P0⎞⎛P1⎞\\n⎝M0⎠⎝M1⎠
+    - KGeoMIP/KQNodes k-partición: múltiples biparticiones unidas con ' | '
 
     Las letras del mecanismo (minúsculas) se convierten a mayúsculas.
     """
@@ -106,8 +121,6 @@ def fmt_particion_amigable(particion: str | None) -> str:
 
     if "⎛" in s:
         return _parse_fmt_curvo(s)
-    if "|" in s:
-        return _parse_fmt_pipe(s)
     return s
 
 
@@ -117,37 +130,36 @@ def _norm(x: str) -> str:
 
 
 def _parse_fmt_curvo(s: str) -> str:
+    """Parsea el formato ⎛...⎞⎛...⎞\\n⎝...⎠⎝...⎠ (GeoMIP, QNodes y sus variantes k)."""
     tops = [_norm(m) for m in re.findall(r"⎛(.*?)⎞", s)]
     bots = [_norm(m.upper()) for m in re.findall(r"⎝(.*?)⎠", s)]
+
     n = len(tops)
     if n == 0:
         return s
+
+    # Bipartición estándar (2 columnas): step=1
+    # k-partición (2k columnas, 2 por parte): step=2
     step = 1 if n == 2 else 2
-    parts = [f"({tops[i]},{bots[i]})" for i in range(0, n, step)]
+    parts = [
+        f"({tops[i]},{bots[i]})"
+        for i in range(0, n, step)
+    ]
     return " | ".join(parts)
 
 
-def _parse_fmt_pipe(s: str) -> str:
-    lines = [ln.strip() for ln in s.strip().split("\n") if ln.strip()]
-    if len(lines) < 2:
-        return s
-
-    def extraer_partes(linea: str) -> list[str]:
-        linea = linea.strip().lstrip("|").rstrip("|")
-        return [p.strip() for p in linea.split("||")]
-
-    tops = [_norm(p) for p in extraer_partes(lines[0])]
-    bots = [_norm(p.upper()) for p in extraer_partes(lines[1])]
-    parts = [f"({tops[i]},{bots[i]})" for i in range(min(len(tops), len(bots)))]
-    return " | ".join(parts)
-
-
-def _append_caso(lines: list[str], r: dict) -> None:
+def _append_caso(lines: list[str], r: dict, es_kgeomip: bool = False) -> None:
     prueba = r["Prueba"]
     alcance = r["Alcance"]
     mecanismo = r["Mecanismo"]
 
-    lines.append(f"### Caso #{prueba} — Alcance: `{alcance}` | Mecanismo: `{mecanismo}`")
+    if es_kgeomip:
+        lines.append(
+            f"### Caso #{prueba} — Alcance: `{alcance}` | Mecanismo: `{mecanismo}`"
+            f" | k={r.get('k', '?')} | Criterio: {r.get('Criterio', '?')}"
+        )
+    else:
+        lines.append(f"### Caso #{prueba} — Alcance: `{alcance}` | Mecanismo: `{mecanismo}`")
     lines.append("")
 
     phi = r.get("Pérdida (φ)")
