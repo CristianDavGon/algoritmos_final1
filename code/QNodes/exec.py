@@ -14,7 +14,7 @@ from src.models.base.application import aplicacion
 from src.main import iniciar
 
 # ── Configuración ─────────────────────────────────────────────────────────────
-ESTADO:  str = "1" + "0" * 4
+ESTADO:  str = "1" + "0" * 19
 MUESTRA: str = "A"
 # ─────────────────────────────────────────────────────────────────────────────
 

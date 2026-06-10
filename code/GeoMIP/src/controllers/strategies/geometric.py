@@ -110,9 +110,11 @@ class GeometricSIA(SIA):
         for _, (presentes, futuros) in enumerate(candidatos):
             presentes = self.sia_subsistema.dims_ncubos[presentes]
             futuros = self.sia_subsistema.indices_ncubos[futuros]
+            key = tuple([(0, nodo) for nodo in presentes] + [(1, nodo) for nodo in futuros])
+            if key in self.memoria_particiones:
+                continue
             dist = self._distribucion_bipartida(futuros, presentes)
             emd = emd_efecto(dist, self.sia_dists_marginales)
-            key = tuple([(0, nodo) for nodo in presentes] + [(1, nodo) for nodo in futuros])
             self.memoria_particiones[key] = (emd, dist)
             if emd == 0.0:
                 break

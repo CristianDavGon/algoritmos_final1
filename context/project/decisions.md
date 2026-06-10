@@ -180,6 +180,10 @@ FASE 4: Φ* = EMD(p(s_{t+1}), ⊗_{Pi} p_{Pi}) una sola vez al final
 
 **Estrategia A (clustering jerárquico aglomerativo sobre S)**: conservada como **línea base de comparación A/B** para los resultados experimentales. No es la respuesta final porque no garantiza regresión k=2 exacta ni monotonicidad anidada por construcción. Ver D4-01 en `context/SDD-4/decisions.md`.
 
+**Corrección 2026-06-09 (D4-05)**: `_mejor_corte` ahora despacha entre `_mejor_corte_exhaustivo` (original) y `_mejor_corte_guiado_por_S` (S propone candidatos por afinidad cruzada, EMD confirma) según `estrategia_corte ∈ {"exhaustivo","guiado_S"}`. Cierra la brecha donde S se construía pero `_mejor_corte` la ignoraba. Ver D4-05 en `context/SDD-4/decisions.md`.
+
+**Optimización 2026-06-09 (D4-06)**: tres correcciones de exactitud/velocidad: (1) el heap de E4 ordena por el **incremento exacto** de Φ (`ΔΦ = costo(A)+costo(B)−costo(P)`, válido por aditividad de `emd_efecto`), no por la EMD absoluta del bloque; (2) la raíz de E4 contrasta la proyección del ancla GeoMIP con el mejor corte directo bajo el modelo k (la proyección descarta el lado presente y puede dejar el óptimo fuera del alcance divisivo — caso N8A: gap 1.0 → 0); (3) cachés de marginales por máscara de bits y de la solución GeoMIP k=2 por clave (GeoMIP corre una vez por subsistema en barridos k=1..5). Regresión k=2 y monotonicidad intactas. Ver D4-06 en `context/SDD-4/decisions.md`.
+
 **Marginalización**: columnas fuera de Pₘ se **SUMAN** (eventos mutuamente excluyentes); filas de variables descartadas se **PROMEDIAN** (equiprobabilidad). No se normaliza. ⊗ del proyecto expande solo columnas (no Kronecker).
 
 **Dependencia**: DEC-11 define la función objetivo → DEC-12 (KQNodes) y DEC-14 (KGeoMIP) la minimizan por caminos distintos (MAO iterativo vs. divisivo geométrico con S). DEC-13 provee ground-truth BruteForce para medir la calidad de ambas heurísticas en sistemas pequeños.

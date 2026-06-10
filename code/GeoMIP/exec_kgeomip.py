@@ -14,10 +14,10 @@ from src.models.base.application import aplicacion
 from src.main_kgeomip import iniciar_kgeomip
 
 # ── Configuración ─────────────────────────────────────────────────────────────
-ESTADO:   str = "1" + "0" * 7
-K:        int = 4
+ESTADO:   str = "1" + "0" * 14
+K:        int = 5
 VARIANTE: str = "E4"
-MUESTRA:  str = "A"
+MUESTRA:  str = "B"
 # ─────────────────────────────────────────────────────────────────────────────
 
 
