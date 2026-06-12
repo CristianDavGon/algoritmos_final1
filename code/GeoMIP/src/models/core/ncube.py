@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from numpy.typing import NDArray
 import numpy as np
 
@@ -10,11 +10,13 @@ class NCube:
     - `indice`: índice original del n-cubo asociado con un literal (0:A, 1:B, 2:C, ...) que permita representabilidad en su alcance o tiempo futuro.
     - `dims`: dimensiones activas actuales del n-cubo, es aquí donde se conoce la dimensionalidad según su cantidad de elementos, de forma tal que si este en el tiempo es condicionado o marginalizado tendrá una dimensionalidad menor o igual a la original a pesar que haya una alta dimensión específica.
     - `data`: arreglo numpy con los datos indexados según la notación de origen, de ser necesario se aplica una transformación sobre estos que los reindexe si se desea otra notación particular.
+    - `memo`: caché de marginalizaciones con clave canónica por máscara de bits (ejes ∩ dims); al ser el n-cubo inmutable, las instancias memoizadas son compartibles sin riesgo.
     """
 
     indice: int
     dims: NDArray[np.int8]
     data: np.ndarray
+    memo: dict[int, "NCube"] = field(default_factory=dict, repr=False, compare=False)
 
     def __post_init__(self):
         """Validación de tamaño y dimensionalidad tras inicialización.
@@ -26,6 +28,10 @@ class NCube:
             raise ValueError(
                 f"Forma inválida {self.data.shape} para dimensiones {self.dims}"
             )
+        mascara = 0
+        for dim in self.dims:
+            mascara |= 1 << int(dim)
+        object.__setattr__(self, "_mascara_dims", mascara)
 
     def condicionar(
         self,
@@ -128,24 +134,33 @@ class NCube:
             Se han agrupado los valores del n-cubo por promedio, dejando los remanentes en la dimension 0.
         """
 
-        marginable_axis = np.intersect1d(ejes, self.dims)
-        if not marginable_axis.size:
+        mascara_ejes = 0
+        for eje in ejes:
+            mascara_ejes |= 1 << int(eje)
+        # Clave canónica: solo la intersección efectiva con las dims activas,
+        # así ejes equivalentes (orden u elementos ajenos) comparten entrada.
+        interseccion = mascara_ejes & self._mascara_dims
+        if not interseccion:
             return self
-        numero_dims = self.dims.size - 1
-        ejes_locales = tuple(
-            numero_dims - dim_idx
-            for dim_idx, axis in enumerate(self.dims)
-            if axis in marginable_axis
-        )
-        new_dims = np.array(
-            [d for d in self.dims if d not in marginable_axis],
-            dtype=np.int8,
-        )
-        return NCube(
-            data=np.mean(self.data, axis=ejes_locales, keepdims=False),
-            dims=new_dims,
-            indice=self.indice,
-        )
+        memoizado = self.memo.get(interseccion)
+        if memoizado is None:
+            numero_dims = self.dims.size - 1
+            ejes_locales = tuple(
+                numero_dims - dim_idx
+                for dim_idx, axis in enumerate(self.dims)
+                if (interseccion >> int(axis)) & 1
+            )
+            new_dims = np.array(
+                [d for d in self.dims if not (interseccion >> int(d)) & 1],
+                dtype=np.int8,
+            )
+            memoizado = NCube(
+                data=np.mean(self.data, axis=ejes_locales, keepdims=False),
+                dims=new_dims,
+                indice=self.indice,
+            )
+            self.memo[interseccion] = memoizado
+        return memoizado
 
     def __str__(self) -> str:
         dims_str = f"dims={self.dims}"

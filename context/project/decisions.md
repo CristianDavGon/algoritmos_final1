@@ -190,6 +190,25 @@ FASE 4: Φ* = EMD(p(s_{t+1}), ⊗_{Pi} p_{Pi}) una sola vez al final
 
 ---
 
+## DEC-15: Optimización transversal de la capa TPM/NCube — memoización canónica por máscara de bits
+
+**Fecha**: 2026-06-12
+**Estado**: ✅ Aplicada
+
+**Decisión**: unificar y mejorar la memoización de `NCube.marginalizar()` en ambos sub-proyectos con clave canónica por máscara de bits (`ejes ∩ dims`), cacheando la instancia `NCube` completa, y portar el memo de `System.bipartir()` de QNodes a GeoMIP.
+
+**Contexto**: la capa NCube/TPM es transversal a las cuatro estrategias. Un benchmark mostró que `np.mean` cuesta ~6.6 µs (n=8) mientras el overhead Python del método (`np.intersect1d` + comprehensions) cuesta ~35-42 µs, y un hit de caché 0.035 µs. GeoMIP no tenía memoización; QNodes la tenía con clave `tuple(ejes)` no canónica (ejes equivalentes en distinto orden o con elementos fuera de dims duplicaban entradas).
+
+**Cambios**:
+1. `GeoMIP/src/models/core/ncube.py` y `QNodes/src/models/core/ncube.py`: máscara de dims precalculada en `__post_init__` (vía `object.__setattr__`, compatible con `frozen=True`); `marginalizar()` usa intersección por AND de máscaras (O(1)) y memoiza la instancia resultante con clave canónica. Al ser inmutable, compartir instancias es seguro y los memos hijos se reutilizan en cadenas incrementales (patrón Queyranne/E4).
+2. `GeoMIP/src/models/core/system.py`: memo de `bipartir()` por clave `(tuple(alcance), tuple(mecanismo))`, idéntico al de QNodes; sistemas derivados (`condicionar`, `substraer`) inician memo propio.
+
+**Resultados**: hot path de marginalizaciones repetidas 45× más rápido (10k llamadas, n=10: 583 ms → 13 ms); barridos KGeoMIP/KQNodes 6-12% más rápidos con pico de memoria ~15% menor (instancias compartidas en vez de arrays duplicados). Fidelidad bit a bit: 67 tests pasan, incluyendo golden pre-optimización (φ y partición idénticos, tolerancia 1e-9) en `tests/suites/{geomip,qnodes}/test_ncube_optimizacion.py`.
+
+**Rechazado**: micro-optimizar `np.mean` (ya es NumPy vectorizado puro y no es el cuello); float32 (rompería la tolerancia 1e-9 de regresión k=2); Numba (incompatible con la restricción de arquitectura).
+
+---
+
 ## Dependencias entre DEC-11 a DEC-14
 
 DEC-11 define la función objetivo → DEC-12 y DEC-14 la minimizan por caminos distintos (MAO iterativo vs. refinamiento geométrico divisivo E4). DEC-13 cierra el ciclo: la búsqueda exhaustiva (BruteForce-k) sirve como ground-truth para medir el gap de optimalidad de ambas heurísticas en sistemas pequeños (n≤6).

@@ -15,7 +15,7 @@ class NCube:
     indice: int
     dims: NDArray[np.int8]
     data: np.ndarray
-    memo: dict[tuple[tuple[int, int], ...], np.ndarray] = field(default_factory=dict)
+    memo: dict[int, "NCube"] = field(default_factory=dict, repr=False, compare=False)
 
     def __post_init__(self):
         """Validación de tamaño y dimensionalidad tras inicialización.
@@ -27,6 +27,10 @@ class NCube:
             raise ValueError(
                 f"Forma inválida {self.data.shape} para dimensiones {self.dims}"
             )
+        mascara = 0
+        for dim in self.dims:
+            mascara |= 1 << int(dim)
+        object.__setattr__(self, "_mascara_dims", mascara)
 
     def condicionar(
         self,
@@ -125,29 +129,33 @@ class NCube:
 
             Se han agrupado los valores del n-cubo por promedio, dejando los remanentes en la dimension 0.
         """
-        if tuple(ejes) not in self.memo:
-            marginable_axis = np.intersect1d(ejes, self.dims)
-            if not marginable_axis.size:
-                return self
+        mascara_ejes = 0
+        for eje in ejes:
+            mascara_ejes |= 1 << int(eje)
+        # Clave canónica: solo la intersección efectiva con las dims activas,
+        # así ejes equivalentes (orden u elementos ajenos) comparten entrada.
+        interseccion = mascara_ejes & self._mascara_dims
+        if not interseccion:
+            return self
+        memoizado = self.memo.get(interseccion)
+        if memoizado is None:
             numero_dims = self.dims.size - 1
             ejes_locales = tuple(
                 numero_dims - dim_idx
                 for dim_idx, axis in enumerate(self.dims)
-                if axis in marginable_axis
+                if (interseccion >> int(axis)) & 1
             )
             new_dims = np.array(
-                [d for d in self.dims if d not in marginable_axis],
+                [d for d in self.dims if not (interseccion >> int(d)) & 1],
                 dtype=np.int8,
             )
-            self.memo[tuple(ejes)] = (
-                np.mean(self.data, axis=ejes_locales, keepdims=False),
-                new_dims,
+            memoizado = NCube(
+                data=np.mean(self.data, axis=ejes_locales, keepdims=False),
+                dims=new_dims,
+                indice=self.indice,
             )
-        return NCube(
-            data=self.memo[tuple(ejes)][0],
-            dims=self.memo[tuple(ejes)][1],
-            indice=self.indice,
-        )
+            self.memo[interseccion] = memoizado
+        return memoizado
 
     def __str__(self) -> str:
         dims_str = f"dims={self.dims}"

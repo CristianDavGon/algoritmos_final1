@@ -41,6 +41,7 @@ class System:
             )
             for i in range(n_nodes)
         )
+        self.memo = {}
 
     @cached_property
     def indices_ncubos(self):
@@ -134,6 +135,7 @@ class System:
             return self
         nuevo_sis = System.__new__(System)
         nuevo_sis.estado_inicial = self.estado_inicial
+        nuevo_sis.memo = {}
         nuevo_sis.ncubos = tuple(
             cube.condicionar(indices_validos, self.estado_inicial)
             for cube in self.ncubos
@@ -213,6 +215,7 @@ class System:
         valid_futures = np.setdiff1d(self.indices_ncubos, alcance_dims)
         new_sys = System.__new__(System)
         new_sys.estado_inicial = self.estado_inicial
+        new_sys.memo = {}
         new_sys.ncubos = tuple(
             cube.marginalizar(mecanismo_dims)
             for cube in self.ncubos
@@ -237,13 +240,18 @@ class System:
         """
         new_sys = System.__new__(System)
         new_sys.estado_inicial = self.estado_inicial
+        new_sys.memo = self.memo
 
-        new_sys.ncubos = tuple(
-            cube.marginalizar(np.setdiff1d(cube.dims, mecanismo))
-            if cube.indice in alcance
-            else cube.marginalizar(mecanismo)
-            for cube in self.ncubos
-        )
+        clave = tuple(alcance), tuple(mecanismo)
+        if clave not in self.memo:
+            self.memo[clave] = tuple(
+                cube.marginalizar(np.setdiff1d(cube.dims, mecanismo))
+                if cube.indice in alcance
+                else cube.marginalizar(mecanismo)
+                for cube in self.ncubos
+            )
+
+        new_sys.ncubos = self.memo[clave]
         return new_sys
 
     def distribucion_marginal(self):
