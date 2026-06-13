@@ -25,99 +25,15 @@ from numpy.typing import NDArray
 from src.constants.base import EFECTO, FLOAT_ZERO
 from src.controllers.manager import Manager
 from src.controllers.strategies.geometric import GeometricSIA
-from src.funcs.base import emd_efecto, seleccionar_subestado
+from src.controllers.strategies.kgeomip_cortes import (
+    _UMBRAL_ENUMERACION,
+    _calcular_phi_total,
+    _candidatos_por_afinidad,
+)
 from src.funcs.format import fmt_biparte_q
 from src.middlewares.slogger import SafeLogger
 from src.models.base.sia import SIA
 from src.models.core.solution import Solution
-from src.models.core.system import System
-
-
-# ---------------------------------------------------------------------------
-# Funciones de módulo (compartidas con tests y BruteForce-k)
-# ---------------------------------------------------------------------------
-
-def _candidatos_por_afinidad(
-    P: frozenset[int],
-    S: np.ndarray,
-    max_candidatos: int,
-) -> list[tuple[frozenset[int], frozenset[int]]]:
-    """Biparticiones de P ordenadas por afinidad cruzada ascendente en S.
-
-    score(A, B) = mean(S[i, j] para i en A, j en B). Las biparticiones con
-    menor afinidad cruzada separan nodos menos relacionados causalmente y
-    se priorizan como candidatos geométricamente plausibles (S propone).
-
-    Args:
-        P: Bloque a bipartir (frozenset de índices locales).
-        S: Matriz de similitud D×D.
-        max_candidatos: Número máximo de candidatos a retornar.
-
-    Returns:
-        Lista de (A, B) ordenada por score ascendente, truncada a max_candidatos.
-    """
-    P_sorted = sorted(P)
-    m = len(P_sorted)
-    candidatos: list[tuple[float, frozenset[int], frozenset[int]]] = []
-
-    for mask in range(1, (1 << (m - 1))):
-        A = frozenset(P_sorted[i] for i in range(m) if (mask >> i) & 1)
-        B = P - A
-        if not A or not B:
-            continue
-        score = float(S[np.ix_(list(A), list(B))].mean())
-        candidatos.append((score, A, B))
-
-    candidatos.sort(key=lambda c: c[0])
-    return [(A, B) for _, A, B in candidatos[:max_candidatos]]
-
-
-def _calcular_phi_total(
-    particion: list[frozenset[int]],
-    sistema: System,
-) -> float:
-    """Φ* = EMD(p_original, ⊗_Pm p_Pm). Una sola llamada al final.
-
-    Args:
-        particion: Lista de partes (frozensets de índices locales).
-        sistema: Subsistema preparado.
-
-    Returns:
-        Φ* usando la misma emd_efecto que GeoMIP en producción (D4-04).
-    """
-    dm_original = sistema.distribucion_marginal()
-    todas_dims = list(sistema.dims_ncubos)
-    N = len(sistema.ncubos)
-    dist_recons = np.empty(N, dtype=np.float32)
-    cubiertos: set[int] = set()
-
-    for parte in particion:
-        pi_global = frozenset(todas_dims[d] for d in parte if d < len(todas_dims))
-        non_pi = np.array([g for g in todas_dims if g not in pi_global], dtype=np.int8)
-        for d in parte:
-            if d >= N:
-                continue
-            cubiertos.add(d)
-            ncubo = sistema.ncubos[d]
-            marg = ncubo.marginalizar(non_pi) if non_pi.size else ncubo
-            if marg.dims.size:
-                sub = tuple(int(sistema.estado_inicial[g]) for g in marg.dims)
-                dist_recons[d] = 1.0 - float(marg.data[seleccionar_subestado(sub)])
-            else:
-                dist_recons[d] = 1.0 - float(marg.data)
-
-    for d in range(N):
-        if d not in cubiertos:
-            ncubo = sistema.ncubos[d]
-            non_all = np.array(todas_dims, dtype=np.int8)
-            marg = ncubo.marginalizar(non_all)
-            if marg.dims.size:
-                sub = tuple(int(sistema.estado_inicial[g]) for g in marg.dims)
-                dist_recons[d] = 1.0 - float(marg.data[seleccionar_subestado(sub)])
-            else:
-                dist_recons[d] = 1.0 - float(marg.data)
-
-    return emd_efecto(dm_original, dist_recons)
 
 
 # ---------------------------------------------------------------------------
@@ -131,9 +47,13 @@ class KGeoMIP(SIA):
     Firma característica: matriz de similitud S derivada de T (una vez por sistema).
     Reutiliza toda la maquinaria de GeoMIP sin duplicar código (regla dura).
 
-    `estrategia_corte` (D4-05) controla cómo `_mejor_corte` elige la
+    `estrategia_corte` (D4-05, OPT-K1) controla cómo `_mejor_corte` elige la
     bipartición de cada bloque dentro de E4 (k ≥ 3):
-        - "exhaustivo" (default): enumera todas las biparticiones, EMD decide.
+        - "auto" (default): exhaustivo si el bloque es pequeño
+          (2^(|P|−1) − 1 ≤ `_UMBRAL_ENUMERACION`), guiado_S si es grande.
+          Preserva la exactitud por bloque donde el exhaustivo es viable y
+          escala sin explosión exponencial donde no.
+        - "exhaustivo": enumera todas las biparticiones, EMD decide.
         - "guiado_S": S propone candidatos por afinidad cruzada, EMD confirma.
     """
 
@@ -148,7 +68,10 @@ class KGeoMIP(SIA):
         self._dm_orig: Optional[NDArray[np.float32]] = None
         self._sol_k2: Optional[Solution] = None
         self._marg_cache: dict[int, NDArray[np.float64]] = {}
-        self.estrategia_corte: str = "exhaustivo"
+        self._costo_cache: dict[frozenset[int], float] = {}
+        self._flat_nd: Optional[np.ndarray] = None
+        self._dm_orig64: Optional[NDArray[np.float64]] = None
+        self.estrategia_corte: str = "auto"
 
     def aplicar_estrategia(  # type: ignore[override]
         self,
@@ -158,7 +81,7 @@ class KGeoMIP(SIA):
         tpm: np.ndarray,
         k: int = 2,
         variante: str = "E4",
-        estrategia_corte: str = "exhaustivo",
+        estrategia_corte: str = "auto",
     ) -> Solution:
         """Halla la k-partición de mínima información integrada.
 
@@ -173,10 +96,11 @@ class KGeoMIP(SIA):
             tpm: Matriz de probabilidad de transición (pre-cargada).
             k: Número de partes deseadas (1 ≤ k ≤ 5).
             variante: "E4" (recomendada) o "A" (baseline aglomerativo).
-            estrategia_corte: "exhaustivo" (enumera todas las biparticiones
-                de cada bloque) o "guiado_S" (S propone candidatos por
-                afinidad cruzada, EMD confirma el mejor). Solo afecta a E4
-                para k ≥ 3 (D4-05).
+            estrategia_corte: "auto" (exhaustivo en bloques pequeños,
+                guiado_S en bloques grandes — OPT-K1), "exhaustivo" (enumera
+                todas las biparticiones de cada bloque) o "guiado_S" (S
+                propone candidatos por afinidad cruzada, EMD confirma el
+                mejor). Solo afecta a E4 para k ≥ 3 (D4-05).
         """
         t0 = time.time()
         nombre = f"KGeoMIP(k={k},{variante})"
@@ -191,6 +115,9 @@ class KGeoMIP(SIA):
             self._subsistema_key = clave
             self._S = None
             self._marg_cache = {}
+            self._costo_cache = {}
+            self._flat_nd = None
+            self._dm_orig64 = None
         sol_k2 = self._sol_k2
 
         self.sia_subsistema = self._geomip.sia_subsistema
@@ -269,13 +196,19 @@ class KGeoMIP(SIA):
         ini_int = self._geomip._ini_int
         N = tabla.shape[0]
         D_nc = tabla.shape[1]
-        all_states = np.arange(N, dtype=np.int64)
         S = np.zeros((D_nc, D_nc), dtype=np.float64)
 
-        for j in range(D_nc):
-            bit_j_ini = (ini_int >> j) & 1
-            differs = ((all_states >> np.int64(j)) & np.int64(1)) != bit_j_ini
-            S[:, j] = tabla[differs].sum(axis=0)
+        # S[i, j] = Σ_s tabla[s, i] · [bit j de s ≠ bit j de ini] — un producto
+        # matricial por chunk de estados (OPT-K3), en vez de D escaneos
+        # booleanos completos. La memoria temporal queda acotada por chunk.
+        bits_j = np.arange(D_nc, dtype=np.int64)
+        ini_bits = (np.int64(ini_int) >> bits_j) & np.int64(1)
+        chunk = min(N, 1 << 16)
+        for inicio in range(0, N, chunk):
+            fin = min(inicio + chunk, N)
+            estados = np.arange(inicio, fin, dtype=np.int64)
+            difiere = (((estados[:, None] >> bits_j) & np.int64(1)) != ini_bits)
+            S += tabla[inicio:fin].T.astype(np.float64) @ difiere.astype(np.float64)
 
         return (S + S.T) / 2.0
 
@@ -283,13 +216,31 @@ class KGeoMIP(SIA):
     # ΔΦ incremental exacto vía marginales por máscara (D4-06)
     # ------------------------------------------------------------------
 
+    def _vista_flat_nd(self) -> np.ndarray:
+        """Vista (sin copia) de `_flat_T` con forma (2, ..., 2, n_ncubos).
+
+        El eje D−1−j corresponde al bit j del estado (layout little-endian de
+        las filas de `_flat_T`); el último eje es el ncubo. Permite
+        marginalizar fijando ejes por indexación básica en O(2^(D−|mask|)) en
+        lugar de escanear los 2^D estados con una máscara booleana (OPT-K2).
+
+        Returns:
+            Vista n-dimensional sobre los datos aplanados de GeoMIP.
+        """
+        if self._flat_nd is None:
+            flat_T = self._geomip._flat_T
+            D = len(self.sia_subsistema.dims_ncubos)
+            self._flat_nd = flat_T.reshape(*([2] * D), flat_T.shape[1])
+        return self._flat_nd
+
     def _marginales_mascara(self, mask: int) -> NDArray[np.float64]:
         """Vector de marginales de todos los ncubos manteniendo los dims de `mask`.
 
         marg[d] = 1 − E[flat[d, s] : s ≡ estado_inicial sobre los bits de mask].
         Equivale a `NCube.marginalizar(dims fuera de mask)` + selección del
-        subestado inicial, pero vectorizado sobre `_flat_data_matrix` de GeoMIP
-        y cacheado por máscara (los cortes repiten máscaras entre candidatos).
+        subestado inicial, pero por indexación directa sobre la vista n-dim
+        (costo O(2^(D−|mask|)) por miss — OPT-K2) y cacheado por máscara
+        (los cortes repiten máscaras entre candidatos).
 
         Args:
             mask: Máscara de bits sobre posiciones locales de dims_ncubos.
@@ -299,15 +250,24 @@ class KGeoMIP(SIA):
         """
         marg = self._marg_cache.get(mask)
         if marg is None:
-            flat = self._geomip._flat_data_matrix
-            estados = np.arange(flat.shape[1], dtype=np.int64)
-            sel = (estados & mask) == (self._geomip._ini_int & mask)
-            marg = 1.0 - flat[:, sel].mean(axis=1)
+            vista = self._vista_flat_nd()
+            D = vista.ndim - 1
+            n_nc = vista.shape[-1]
+            ini_int = self._geomip._ini_int
+            idx: list = [slice(None)] * (D + 1)
+            for j in range(D):
+                if (mask >> j) & 1:
+                    idx[D - 1 - j] = (ini_int >> j) & 1
+            sub = vista[tuple(idx)]
+            marg = 1.0 - sub.reshape(-1, n_nc).mean(axis=0, dtype=np.float64)
             self._marg_cache[mask] = marg
         return marg
 
     def _costo_parte(self, Q: frozenset[int]) -> float:
         """Contribución exacta de la parte Q a Φ: Σ_{d∈Q} |dm_orig[d] − marg_d(Q)|.
+
+        Cacheado por parte (OPT-K2): `_delta_phi_corte` repite las mismas
+        partes entre candidatos y entradas del heap de E4.
 
         Args:
             Q: Parte (frozenset de índices locales de ncubos).
@@ -317,15 +277,21 @@ class KGeoMIP(SIA):
         """
         if not Q:
             return 0.0
+        costo = self._costo_cache.get(Q)
+        if costo is not None:
+            return costo
         n_dims = len(self.sia_subsistema.dims_ncubos)
         mask = 0
         for d in Q:
             if d < n_dims:
                 mask |= 1 << d
         marg = self._marginales_mascara(mask)
+        if self._dm_orig64 is None:
+            self._dm_orig64 = np.asarray(self._dm_orig, dtype=np.float64)
         idx = sorted(Q)
-        orig = np.asarray(self._dm_orig, dtype=np.float64)[idx]
-        return float(np.sum(np.abs(orig - marg[idx])))
+        costo = float(np.sum(np.abs(self._dm_orig64[idx] - marg[idx])))
+        self._costo_cache[Q] = costo
+        return costo
 
     def _delta_phi_corte(self, A: frozenset[int], B: frozenset[int]) -> float:
         """ΔΦ exacto de cortar P = A ∪ B en (A, B).
@@ -352,7 +318,11 @@ class KGeoMIP(SIA):
         P: frozenset[int],
         S: np.ndarray,
     ) -> tuple[frozenset[int], frozenset[int], float]:
-        """Despacha a la estrategia de corte configurada (D4-05).
+        """Despacha a la estrategia de corte configurada (D4-05, OPT-K1).
+
+        En modo "auto" el despacho es por tamaño de bloque: exhaustivo si
+        2^(|P|−1) − 1 ≤ `_UMBRAL_ENUMERACION` (resultado idéntico al modo
+        exhaustivo), guiado_S en caso contrario (escala sin explosión).
 
         Args:
             P: Frozenset de índices locales del bloque.
@@ -363,7 +333,12 @@ class KGeoMIP(SIA):
         """
         if self.estrategia_corte == "guiado_S":
             return self._mejor_corte_guiado_por_S(P, S)
-        return self._mejor_corte_exhaustivo(P, S)
+        if self.estrategia_corte == "exhaustivo":
+            return self._mejor_corte_exhaustivo(P, S)
+        # "auto": exacto donde es barato, guiado donde explota
+        if len(P) <= 1 or (1 << (len(P) - 1)) - 1 <= _UMBRAL_ENUMERACION:
+            return self._mejor_corte_exhaustivo(P, S)
+        return self._mejor_corte_guiado_por_S(P, S)
 
     def _mejor_corte_exhaustivo(
         self,

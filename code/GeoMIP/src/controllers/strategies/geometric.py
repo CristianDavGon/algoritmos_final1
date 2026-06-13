@@ -65,9 +65,16 @@ class GeometricSIA(SIA):
         self._subsistema_key = (condicion, alcance, mecanismo)
         if not (hasattr(self, '_flat_cache_key') and self._flat_cache_key == self._subsistema_key):
             self._flat_cache_key = self._subsistema_key
-            self._flat_data_matrix = np.stack(
-                [nc.data.ravel() for nc in self.sia_subsistema.ncubos]
-            )  # shape: (D_ncubos, 2^D_dims)
+            # Una sola orientación en memoria (OPT-E1): (2^D_dims, D_ncubos)
+            # C-contigua, consumida por filas en _build_tabla. La vista
+            # transpuesta (D_ncubos, 2^D_dims) se expone como propiedad.
+            ncubos = self.sia_subsistema.ncubos
+            self._flat_T = np.empty(
+                (ncubos[0].data.size, len(ncubos)), dtype=ncubos[0].data.dtype
+            )
+            for i, nc in enumerate(ncubos):
+                self._flat_T[:, i] = nc.data.ravel()
+            self._preparar_indices_bipartida()
 
         self.vertices = set(presente + futuro)
         dims = self.sia_subsistema.dims_ncubos
@@ -88,6 +95,11 @@ class GeometricSIA(SIA):
     
     def nodes_complement(self, nodes: list[tuple[int, int]]):
         return list(set(self.vertices) - set(nodes))
+
+    @property
+    def _flat_data_matrix(self) -> np.ndarray:
+        """Vista (D_ncubos, 2^D_dims) sobre `_flat_T`, sin copia (OPT-E1)."""
+        return self._flat_T.T
     
     def _estado_a_int(self, estado: list) -> int:
         return sum(b << i for i, b in enumerate(estado))
@@ -122,6 +134,23 @@ class GeometricSIA(SIA):
             self.memoria_particiones, key=lambda k: self.memoria_particiones[k][0]
         )
 
+    def _preparar_indices_bipartida(self) -> None:
+        """Precálculo por subsistema para `_distribucion_bipartida` (OPT-G1).
+
+        Para cada ncubo guarda: dims en orden de eje (dims[n-1-k] para el eje k,
+        layout little-endian), el valor del estado inicial por eje y la máscara
+        de bits de cada dim. Evita reconstruir sets y hacer lookups `d in set`
+        en el bucle interno de cada evaluación de candidato.
+        """
+        subsistema = self.sia_subsistema
+        estado_inicial = subsistema.estado_inicial
+        self._bip_estado_eje: list[np.ndarray] = []
+        self._bip_bits_eje: list[np.ndarray] = []
+        for ncubo in subsistema.ncubos:
+            dims_rev = ncubo.dims[::-1].astype(np.int64)
+            self._bip_estado_eje.append(estado_inicial[dims_rev].astype(np.int64))
+            self._bip_bits_eje.append(np.int64(1) << dims_rev)
+
     def _distribucion_bipartida(self, alcance: np.ndarray, mecanismo: np.ndarray) -> np.ndarray:
         """
         Computes distribucion_marginal(bipartir(alcance, mecanismo)) directly,
@@ -132,31 +161,27 @@ class GeometricSIA(SIA):
 
         For D=20 with |marg|=10, this is 2^10=1K vs 2^20=1M: ~1000x faster per NCube
         (the full 8MB NCube array fits in L3 cache, so scatter reads are fast).
+
+        La pertenencia de cada eje al mecanismo se decide con AND de máscaras
+        de bits precomputadas (`_preparar_indices_bipartida`), sin sets (OPT-G1).
         """
         subsistema = self.sia_subsistema
-        estado_inicial = subsistema.estado_inicial
         alcance_set = set(int(x) for x in alcance)
-        mecanismo_set = set(int(x) for x in mecanismo)
+        mec_mask = np.int64(0)
+        for d in mecanismo:
+            mec_mask |= np.int64(1) << np.int64(int(d))
 
         ncubos = subsistema.ncubos
         distribuciones = np.empty(len(ncubos), dtype=np.float32)
 
         for i, ncubo in enumerate(ncubos):
-            dims = ncubo.dims
-            dims_set = set(int(d) for d in dims)
-            n = len(dims)
+            en_mecanismo = (self._bip_bits_eje[i] & mec_mask) != 0
+            fijar = en_mecanismo if ncubo.indice in alcance_set else ~en_mecanismo
 
-            if ncubo.indice in alcance_set:
-                keep_set = dims_set & mecanismo_set
-            else:
-                keep_set = dims_set - mecanismo_set
-
-            # axis k in data corresponds to dims[n-1-k] (little-endian layout)
-            idx = [slice(None)] * n
-            for k in range(n):
-                d = int(dims[n - 1 - k])
-                if d in keep_set:
-                    idx[k] = int(estado_inicial[d])
+            idx: list = [slice(None)] * len(fijar)
+            estado_eje = self._bip_estado_eje[i]
+            for k in np.nonzero(fijar)[0]:
+                idx[k] = int(estado_eje[k])
 
             sub_data = ncubo.data[tuple(idx)]
             distribuciones[i] = 1.0 - float(np.mean(sub_data))
@@ -174,15 +199,15 @@ class GeometricSIA(SIA):
         D = self._D
         ini_int = self._ini_int
         fin_int = self._estado_a_int(estado_final.tolist())
-        D_ncubos = self._flat_data_matrix.shape[0]
+        flat_T = self._flat_T  # (N, D_ncubos) C-contigua, sin copia (OPT-E1)
+        D_ncubos = flat_T.shape[1]
         N = 2 ** D
 
-        # Transponer flat_data_matrix para acceso por fila (contiguo en C-order)
-        # _flat_data_matrix: (D_ncubos, N) → flat_T: (N, D_ncubos)
-        flat_T = np.ascontiguousarray(self._flat_data_matrix.T)
         ini_row = flat_T[ini_int].copy()  # (D_ncubos,)
 
-        self._tabla = np.zeros((N, D_ncubos), dtype=np.float64)
+        # float32 (OPT-E1): T solo guía la selección de candidatos; la EMD de
+        # cada candidato se evalúa aparte con precisión completa.
+        self._tabla = np.zeros((N, D_ncubos), dtype=np.float32)
 
         # Asignar nivel a cada estado: nivel(s) = popcount(s XOR ini, solo bits fin-direction)
         all_states = np.arange(N, dtype=np.int64)
@@ -200,11 +225,13 @@ class GeometricSIA(SIA):
         fin_bits = [i for i in range(D) if (fin_mask >> i) & 1]
         max_level = len(fin_bits)
 
-        self.caminos: Dict[int, np.ndarray] = {0: np.array([ini_int], dtype=np.int64)}
+        # Solo se persiste el nivel por estado (N bytes) en lugar del dict de
+        # arrays de estados por nivel (8N bytes) — OPT-E1.
+        self._levels = levels.astype(np.int8)
+        self._max_level = max_level
 
         for nivel in range(1, max_level + 1):
             S_k = all_states[levels == nivel]  # todos los estados en este nivel
-            self.caminos[nivel] = S_k
 
             # Diferencia absoluta vs ini para todos los estados del nivel a la vez
             self._tabla[S_k] = np.abs(flat_T[S_k] - ini_row)  # (|S_k|, D_ncubos)
@@ -234,13 +261,15 @@ class GeometricSIA(SIA):
             futuros = [i for i in range(n_vars) if i != idx]
             candidatos.append([presentes_comun, futuros])
 
-        es_par = len(self.caminos) % 2 == 0
-        mitad = len(self.caminos) // 2 if es_par else (len(self.caminos) // 2) + 1
+        niveles_totales = self._max_level + 1  # incluye el nivel 0 (estado inicial)
+        es_par = niveles_totales % 2 == 0
+        mitad = niveles_totales // 2 if es_par else (niveles_totales // 2) + 1
         mask_all_bits = np.int64((1 << D) - 1)
         ini_bits = np.array([(ini_int >> i) & 1 for i in range(D)], dtype=np.int64)
 
         for nivel in range(1, mitad):
-            S = self.caminos[nivel]  # numpy array de enteros de estado
+            # Estados del nivel, derivados del array de niveles (OPT-E1)
+            S = np.nonzero(self._levels == nivel)[0].astype(np.int64)
             if not len(S):
                 continue
 

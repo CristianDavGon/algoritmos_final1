@@ -212,3 +212,25 @@ FASE 4: Φ* = EMD(p(s_{t+1}), ⊗_{Pi} p_{Pi}) una sola vez al final
 ## Dependencias entre DEC-11 a DEC-14
 
 DEC-11 define la función objetivo → DEC-12 y DEC-14 la minimizan por caminos distintos (MAO iterativo vs. refinamiento geométrico divisivo E4). DEC-13 cierra el ciclo: la búsqueda exhaustiva (BruteForce-k) sirve como ground-truth para medir el gap de optimalidad de ambas heurísticas en sistemas pequeños (n≤6).
+
+---
+
+## DEC-16: Optimización de tiempo y espacio de GeoMIP/KGeoMIP — corte "auto" y eliminación de la enumeración exponencial
+
+**Fecha**: 2026-06-12
+**Estado**: ✅ Aplicada
+
+**Decisión**: optimizar GeoMIP y KGeoMIP en tiempo y espacio sin alterar resultados donde el régimen exacto es viable: (a) `estrategia_corte="auto"` como default de KGeoMIP (exhaustivo si 2^(|P|−1) − 1 ≤ 4096, guiado_S si mayor); (b) `_candidatos_por_afinidad` deja de enumerar las 2^(m−1) biparticiones — scoring vectorizado bajo el umbral, generación constructiva O(m²) por semillas de mínima afinidad encima de él; (c) marginales por máscara vía vista n-dimensional (O(2^(D−|mask|)) por miss) + caché de `_costo_parte` por parte; (d) `_construir_S` por producto matricial en chunks (BLAS); (e) `_distribucion_bipartida` con índices/máscaras precomputados por subsistema; (f) espacio: una sola orientación de la matriz aplanada (`_flat_T`, la vista transpuesta es propiedad), `_levels` int8 en lugar del dict `caminos` (8N→N bytes), `_tabla` en float32.
+
+**Hallazgo clave (no señalado en opciones.md)**: el modo `guiado_S` previo NO acotaba el costo — `_candidatos_por_afinidad` enumeraba y puntuaba TODAS las 2^(m−1) biparticiones antes de truncar a 20. Cambiar solo el default (Prioridad 1 de opciones.md) era insuficiente; la corrección real es el régimen constructivo.
+
+**Contraste con opciones.md**: Ayuda 1 describe código inexistente en este repo (greedy swap, `hybrid_spectral_mip.py`); su caché de marginales por bitmask y su cola de prioridad ya existían (D4-06); su Branch & Bound dentro de la EMD no aplica (emd_efecto es L1 marginal O(D), no transporte). Ayuda 2 acertó en diagnóstico (default exhaustivo, arange por miss, float32, vectorizar S, cachear costo por parte) pero asumió que guiado_S ya era O(k·C·costo_delta).
+
+**Resultados** (`scripts/bench_kgeomip.py`, tests 75/75 GeoMIP+KGeoMIP, 13/13 QNodes):
+- Tiempos barrido k=1..5: n=10 exhaustivo 0.106s → 0.022s (4.8×); guiado_S 0.058s → 0.007s (8.3×).
+- φ y gaps idénticos al baseline en todos los casos del benchmark (auto ≡ exhaustivo en n ≤ 10; float32 no alteró ningún φ).
+- Escala nueva: n=15 barrido completo 0.30s; n=20 4.5s (antes inviable: k=3 requería ~5·10⁵ biparticiones × escaneos de 2^20 estados).
+- Espacio: `_tabla` 50% menor (float32), un array N×D_nc menos (orientación única), dict `caminos` (≈8N bytes) → `_levels` (N bytes).
+- LOC: funciones de candidatos y Φ total extraídas a `kgeomip_cortes.py` (kgeomip.py 277, kgeomip_cortes.py 110, geometric.py 200 — todos ≤ 300).
+
+**Rechazado**: LRU para `_marg_cache`/`_costo_cache` (se limpian por clave de subsistema; entradas pequeñas y acotadas por candidatos evaluados); float32 en `_flat_T` (preserva precisión de marginales que alimentan ΔΦ y φ); Branch & Bound en EMD (no aplica con métrica L1 aditiva).

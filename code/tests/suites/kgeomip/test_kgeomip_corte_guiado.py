@@ -75,11 +75,16 @@ def test_candidatos_por_afinidad_respeta_limite() -> None:
 # Dispatcher _mejor_corte y bandera estrategia_corte
 # --------------------------------------------------------------------------
 
-def test_estrategia_corte_default_exhaustivo() -> None:
+def test_estrategia_corte_explicita_se_respeta() -> None:
+    """Las banderas explícitas siguen disponibles para benchmarks (OPT-K1)."""
     n = 5
-    _set_env(n)
+    mask = _full_mask(n)
+    tpm = _set_env(n)
     kg = _make_kgeomip("10000")
+    kg.aplicar_estrategia(mask, mask, mask, tpm, k=3, estrategia_corte="exhaustivo")
     assert kg.estrategia_corte == "exhaustivo"
+    kg.aplicar_estrategia(mask, mask, mask, tpm, k=3, estrategia_corte="guiado_S")
+    assert kg.estrategia_corte == "guiado_S"
 
 
 def test_mejor_corte_dispatcher_equivale_para_bloques_pequenos() -> None:

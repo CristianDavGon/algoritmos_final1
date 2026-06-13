@@ -144,6 +144,7 @@ Extender GeoMIP al caso k-particiones con k ∈ {2,3,4,5} usando la heurística 
 11. **Gap vs BruteForce**: gap = φ_E4 − φ* ≥ 0 y tasa de acierto exacto para k ∈ {3,4}, n ≤ 6.
 12. **A/B testing E4 vs Estrategia A**: comparar gap medio y % acierto para k ∈ {3,4}.
 13. **Resultados experimentales**: CSV para k ∈ {2,3,4,5}, n ∈ {5,8,10}, incluyendo Φ(k) y ΔΦ(k).
+14. ✅ **Optimización tiempo/espacio (DEC-16, 2026-06-12)**: corte "auto" (exacto en bloques pequeños, guiado en grandes), candidatos sin enumeración exponencial (constructivo O(m²)), marginales O(2^(D−|mask|)) + caché de costos por parte, `_construir_S` por GEMM en chunks, `_tabla` float32 y orientación única de la matriz aplanada. Barrido n=10: 4.8-8×; n=15/n=20 ahora viables (0.30s / 4.5s). Funciones de corte extraídas a `kgeomip_cortes.py` (límite 300 LOC).
 
 ### Criterio de DONE
 - **Regresión k=2**: KGeoMIP(k=2) == GeoMIP para n ∈ {5,8,10}, tolerancia 1e-9.

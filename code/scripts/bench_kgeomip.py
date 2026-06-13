@@ -71,7 +71,7 @@ def bench_tiempos() -> None:
         estado = "1" + "0" * (n - 1)
         mask = "1" * n
         tpm = _set_env(n)
-        for corte in ("exhaustivo", "guiado_S"):
+        for corte in ("exhaustivo", "guiado_S", "auto"):
             kg = _make_kgeomip(estado)
             t0 = time.perf_counter()
             phis = {}
@@ -98,7 +98,7 @@ def bench_exactitud() -> None:
         tpm = _set_env(n)
         for k in (3, 4):
             kg = _make_kgeomip(estado)
-            for corte in ("exhaustivo", "guiado_S"):
+            for corte in ("exhaustivo", "guiado_S", "auto"):
                 t0 = time.perf_counter()
                 sol = kg.aplicar_estrategia(
                     mask, mask, mask, tpm, k=k, estrategia_corte=corte

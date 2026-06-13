@@ -160,6 +160,76 @@ def test_marginales_por_mascara_equivalen_a_ncube() -> None:
         )
 
 
+def test_marginales_vista_equivale_a_escaneo_booleano() -> None:
+    """La marginal por vista n-dim (OPT-K2) coincide con el escaneo booleano."""
+    kg, _, _ = _preparar(5, "11111")
+    flat = kg._geomip._flat_data_matrix
+    ini_int = kg._geomip._ini_int
+    estados = np.arange(flat.shape[1], dtype=np.int64)
+
+    n_dims = len(kg.sia_subsistema.dims_ncubos)
+    for mask in (0b00001, 0b00101, 0b11111, 0b01010, 0):
+        if mask >= (1 << n_dims):
+            continue
+        kg._marg_cache.pop(mask, None)
+        marg = kg._marginales_mascara(mask)
+        sel = (estados & mask) == (ini_int & mask)
+        esperado = 1.0 - flat[:, sel].mean(axis=1)
+        assert np.allclose(marg, esperado, atol=1e-12), f"mask={mask:b}"
+
+
+def test_costo_parte_cacheado_consistente() -> None:
+    """_costo_parte cachea por parte y el valor cacheado coincide con el fresco."""
+    kg, _, _ = _preparar(5, "10000")
+    Q = frozenset({0, 2, 3})
+
+    costo_1 = kg._costo_parte(Q)
+    assert Q in kg._costo_cache
+    costo_2 = kg._costo_parte(Q)  # hit
+    assert costo_1 == costo_2
+
+    kg._costo_cache.clear()
+    kg._marg_cache.clear()
+    costo_fresco = kg._costo_parte(Q)
+    assert abs(costo_1 - costo_fresco) < 1e-12
+
+
+def test_caches_se_limpian_al_cambiar_clave() -> None:
+    """Cambiar la clave del subsistema invalida los cachés de costos/marginales."""
+    n = 5
+    mask = _full_mask(n)
+    tpm = _set_env(n)
+    kg = _make_kgeomip("10000")
+    kg.aplicar_estrategia(mask, mask, mask, tpm, k=3)
+    assert kg._costo_cache and kg._marg_cache
+
+    otra = "01111"
+    kg.aplicar_estrategia(otra, mask, mask, tpm, k=3)
+    # Tras el cambio de clave los cachés se reconstruyeron desde cero para la
+    # nueva clave (no contienen residuos incompatibles con el subsistema previo)
+    assert kg._subsistema_key == (otra, mask, mask)
+
+
+def test_construir_S_equivale_a_referencia() -> None:
+    """_construir_S vectorizada (OPT-K3) coincide con el bucle de referencia."""
+    kg, _, _ = _preparar(8, "10000000")
+    D = len(kg.sia_subsistema.indices_ncubos)
+    S_nueva = kg._construir_S(D)
+
+    tabla = kg._geomip._tabla
+    ini_int = kg._geomip._ini_int
+    all_states = np.arange(tabla.shape[0], dtype=np.int64)
+    D_nc = tabla.shape[1]
+    S_ref = np.zeros((D_nc, D_nc), dtype=np.float64)
+    for j in range(D_nc):
+        bit_j_ini = (ini_int >> j) & 1
+        differs = ((all_states >> np.int64(j)) & np.int64(1)) != bit_j_ini
+        S_ref[:, j] = tabla[differs].sum(axis=0)
+    S_ref = (S_ref + S_ref.T) / 2.0
+
+    assert np.allclose(S_nueva, S_ref, atol=1e-9)
+
+
 def test_geomip_corre_una_sola_vez_por_clave() -> None:
     """En un barrido k=2..5 sobre la misma clave, GeoMIP corre una sola vez."""
     n = 5
