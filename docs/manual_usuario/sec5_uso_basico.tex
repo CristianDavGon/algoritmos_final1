@@ -1,0 +1,137 @@
+% ============================================================
+% §5 · Uso básico del software — Manual de Usuario K-QGMIP
+% ============================================================
+
+\section{Uso básico del software}
+
+El flujo de uso de K-QGMIP es el mismo independientemente del método elegido
+(KQNodes o KGeoMIP): el usuario edita un \textbf{script de entrada} dedicado a cada
+método, configura los parámetros del análisis y lo ejecuta desde el terminal.
+El \textit{framework} se encarga de orquestar internamente la carga de la red,
+la preparación del subsistema, la ejecución del algoritmo y el guardado de resultados.
+
+% ------------------------------------------------------------
+\subsection{Flujo general de uso}
+% ------------------------------------------------------------
+
+\begin{enumerate}
+  \item \textbf{Seleccionar el método}: elegir entre KQNodes o KGeoMIP según el
+        tamaño del sistema y los recursos disponibles (ver Sección de Requisitos).
+
+  \item \textbf{Abrir el script de entrada del método elegido}:
+        \begin{itemize}
+          \item KQNodes: \texttt{code/QNodes/exec\_kqnodes.py}
+          \item KGeoMIP: \texttt{code/GeoMIP/exec\_kgeomip.py}
+        \end{itemize}
+
+  \item \textbf{Configurar los parámetros} directamente en el script
+        (detallados en la subsección siguiente).
+
+  \item \textbf{Ejecutar el script} desde la carpeta correspondiente:
+\begin{lstlisting}[language=bash]
+# Para KQNodes
+cd code/QNodes
+uv run exec_kqnodes.py
+
+# Para KGeoMIP
+cd code/GeoMIP
+uv run exec_kgeomip.py
+\end{lstlisting}
+
+  \item \textbf{Revisar los resultados} generados automáticamente en
+        \texttt{results/\{metodo\}/} en formato CSV y Markdown.
+\end{enumerate}
+
+% ------------------------------------------------------------
+\subsection{Parámetros que debe especificar el usuario}
+% ------------------------------------------------------------
+
+Cada script de entrada expone cuatro parámetros al inicio del archivo que el usuario
+debe ajustar antes de ejecutar. Tres de ellos son comunes a ambos métodos
+(\texttt{ESTADO}, \texttt{K}, \texttt{MUESTRA}); el cuarto difiere según el método.
+
+\subsubsection*{KQNodes — \texttt{code/QNodes/exec\_kqnodes.py}}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{|l|p{3.5cm}|p{6cm}|}
+\hline
+\textbf{Parámetro} & \textbf{Ejemplo} & \textbf{Descripción} \\
+\hline
+\texttt{ESTADO} & \texttt{"1" + "0" * 19} &
+  Estado inicial $s(t)$: cadena binaria de longitud $n$.
+  Define implícitamente el tamaño del sistema. \\
+\hline
+\texttt{K} & \texttt{5} &
+  Número de partes de la k-partición. Valores válidos: \texttt{2}, \texttt{3},
+  \texttt{4}, \texttt{5}. Con \texttt{2} reproduce la bipartición clásica. \\
+\hline
+\texttt{CRITERIO} & \texttt{"C4"} &
+  Criterio de refinamiento submodular.
+  \texttt{"C4"} = corte marginal mínimo (recomendado);
+  \texttt{"C1"} = tamaño máximo de parte. \\
+\hline
+\texttt{MUESTRA} & \texttt{"A"} &
+  Letra de la red de prueba (\texttt{N\{n\}\{MUESTRA\}.csv}). \\
+\hline
+\end{tabular}
+\caption{Parámetros de configuración de KQNodes en \texttt{exec\_kqnodes.py}.}
+\label{tab:params_kqnodes_5}
+\end{table}
+
+\subsubsection*{KGeoMIP — \texttt{code/GeoMIP/exec\_kgeomip.py}}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{|l|p{3.5cm}|p{6cm}|}
+\hline
+\textbf{Parámetro} & \textbf{Ejemplo} & \textbf{Descripción} \\
+\hline
+\texttt{ESTADO} & \texttt{"1" + "0" * 24} &
+  Estado inicial $s(t)$: cadena binaria de longitud $n$.
+  Define implícitamente el tamaño del sistema. \\
+\hline
+\texttt{K} & \texttt{5} &
+  Número de partes de la k-partición. Valores válidos: \texttt{2}, \texttt{3},
+  \texttt{4}, \texttt{5}. Con \texttt{2} reproduce exactamente GeoMIP. \\
+\hline
+\texttt{VARIANTE} & \texttt{"E4"} &
+  Heurística de refinamiento geométrico.
+  \texttt{"E4"} = divisivo por MinHeap con $\Delta\Phi$ (recomendado; garantiza
+  regresión $k=2$ y monotonicidad);
+  \texttt{"A"} = clustering aglomerativo (solo para comparación experimental). \\
+\hline
+\texttt{MUESTRA} & \texttt{"A"} &
+  Letra de la red de prueba (\texttt{N\{n\}\{MUESTRA\}.csv}). \\
+\hline
+\end{tabular}
+\caption{Parámetros de configuración de KGeoMIP en \texttt{exec\_kgeomip.py}.}
+\label{tab:params_kgeomip_5}
+\end{table}
+
+Las máscaras binarias de \textbf{condición}, \textbf{alcance} y \textbf{mecanismo}
+no se configuran manualmente en los scripts: se leen automáticamente de las
+hojas del archivo Excel de pruebas (\texttt{data/DatosPruebas2026\_1.xlsx}),
+donde están expresadas como letras (\texttt{"ABCDE"}) y el \textit{framework}
+las convierte a cadenas binarias en tiempo de ejecución.
+
+% ------------------------------------------------------------
+\subsection{Formas de proporcionar los parámetros}
+% ------------------------------------------------------------
+
+K-QGMIP admite dos formas de entrada de datos:
+
+\begin{itemize}
+  \item \textbf{Directamente en el script} (análisis individual): el usuario edita
+        \texttt{ESTADO}, \texttt{K}, \texttt{CRITERIO} y \texttt{MUESTRA} en el script
+        de entrada y ejecuta una sola corrida. Útil para explorar un sistema específico
+        o depurar resultados.
+
+  \item \textbf{Mediante archivo Excel} (análisis en lote): el \textit{framework}
+        lee todas las combinaciones de alcance y mecanismo definidas en
+        \texttt{DatosPruebas2026\_1.xlsx} para el tamaño $n$ correspondiente, y ejecuta
+        el método sobre cada una. El usuario solo configura \texttt{ESTADO}, \texttt{K},
+        \texttt{CRITERIO} y \texttt{MUESTRA}; el resto lo gestiona el \textit{framework}
+        automáticamente. Esta es la modalidad de ejecución por defecto al correr los
+        scripts de entrada.
+\end{itemize}

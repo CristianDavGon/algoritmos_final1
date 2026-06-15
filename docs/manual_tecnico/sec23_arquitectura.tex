@@ -1,0 +1,280 @@
+% ============================================================
+% §2.3 · Arquitectura del Software — Manual Técnico K-QGMIP
+% ============================================================
+
+\section{Arquitectura del Software}
+
+Todos los diagramas de esta sección siguen la notación \textbf{UML 2.x} estándar.
+
+
+% ─────────────────────────────────────────────────────────────────────────────
+\subsection{Diagrama de Arquitectura General}
+% ─────────────────────────────────────────────────────────────────────────────
+
+El sistema K-QGMIP se organiza en tres capas funcionales que separan la
+\textbf{configuración del usuario}, la \textbf{orquestación batch} y el
+\textbf{núcleo de cálculo}:
+
+\begin{itemize}
+  \item \textbf{Capa de entrada}: los scripts \texttt{exec\_kgeomip.py} y
+        \texttt{exec\_kqnodes.py} exponen los parámetros configurables
+        (\texttt{ESTADO}, \texttt{K}, \texttt{VARIANTE}/\texttt{CRITERIO},
+        \texttt{MUESTRA}) y delegan en la capa de orquestación.
+
+  \item \textbf{Capa de orquestación} (\texttt{main\_kgeomip.py} /
+        \texttt{main\_kqnodes.py}): lee el Excel de pruebas, carga la TPM
+        desde el CSV de muestras, construye los objetos \texttt{Manager} /
+        \texttt{KGeoMIP} / \texttt{KQNodes} y ejecuta el análisis en lote,
+        guardando los resultados en CSV y Markdown.
+
+  \item \textbf{Capa de cálculo} (módulo \texttt{src/}): implementa la
+        jerarquía SIA, los NCubos, el gestor \texttt{Manager}, las estrategias
+        KGeoMIP y KQNodes, y las utilidades compartidas (EMD, memoización,
+        profiling).
+\end{itemize}
+
+\figura{fig_arquitectura_general.png}{0.92}%
+  {Diagrama de arquitectura general de K-QGMIP. Las flechas indican flujo de
+   control y dependencia entre capas. Los componentes sombreados pertenecen
+   a la extensión k-particiones; los no sombreados son infraestructura
+   heredada de GeoMIP/QNodes.}%
+  {arquitectura_general}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\subsection{Diagrama de Clases (UML)}
+% ─────────────────────────────────────────────────────────────────────────────
+
+La jerarquía de clases del proyecto se articula alrededor de la clase abstracta
+\textbf{SIA} (\textit{System Integration Analysis}), que define la interfaz común
+de todas las estrategias y encapsula la preparación del subsistema.
+
+\subsubsection*{Clase base \texttt{SIA}}
+
+\begin{itemize}
+  \item \textbf{Atributos}: \texttt{gestor: Manager}, \texttt{sia\_subsistema: System},
+        \texttt{sia\_dists\_marginales: ndarray}, \texttt{sia\_tiempo\_inicio: float}.
+  \item \textbf{Métodos públicos}: \texttt{aplicar\_estrategia(...) → Solution} (abstracto),
+        \texttt{sia\_preparar\_subsistema(estado, condicion, alcance, mecanismo)}.
+  \item \textbf{Métodos privados}: \texttt{\_condicionar()}, \texttt{\_substraer()}.
+\end{itemize}
+
+\subsubsection*{Clases derivadas}
+
+\begin{itemize}
+  \item \textbf{KGeoMIP(SIA)}: contiene una instancia interna \texttt{\_geomip:
+        GeometricSIA} (composición), cachés \texttt{\_S}, \texttt{\_marg\_cache},
+        \texttt{\_costo\_cache} y \texttt{\_flat\_nd}. Métodos principales:
+        \texttt{\_construir\_S(D)}, \texttt{\_refinar\_e4(D,k)},
+        \texttt{\_mejor\_corte(parte)}, \texttt{\_delta\_phi\_corte(parte,A,B)}.
+
+  \item \textbf{KQNodes(SIA)}: importa \texttt{oracle} y \texttt{qnodes} de
+        \texttt{qnodes.py} (dependencia). Métodos principales:
+        \texttt{\_buscar\_particion(k, criterio)}, \texttt{\_refinar\_c4(...)},
+        \texttt{\_refinar\_c1(...)}.
+
+  \item \textbf{GeometricSIA(SIA)}: ancla de bipartición de GeoMIP. Atributos clave:
+        \texttt{\_tabla: ndarray}, \texttt{\_flat\_T: ndarray}, \texttt{\_ini\_int: int},
+        \texttt{memoria\_particiones: dict}. Expuesto a KGeoMIP vía composición.
+\end{itemize}
+
+\subsubsection*{Clases auxiliares}
+
+\begin{itemize}
+  \item \textbf{System}: encapsula la TPM condicionada y sustraída, con los
+        atributos \texttt{ncubos: list[NCube]}, \texttt{dims\_ncubos: list[int]},
+        \texttt{indices\_ncubos: list[int]} y \texttt{estado\_inicial: str}.
+        Método clave: \texttt{distribucion\_marginal() → ndarray}.
+
+  \item \textbf{NCube}: hipercubo de probabilidades de transición de un nodo.
+        Atributos: \texttt{data: ndarray} de forma $(2, 2, \ldots, 2)$.
+        Método: \texttt{marginalizar(dims\_excluidas) → ndarray}.
+
+  \item \textbf{Manager}: gestor de red. Carga la TPM desde CSV
+        (\texttt{cargar\_red() → ndarray}) y gestiona el estado inicial.
+
+  \item \textbf{Solution}: objeto resultado. Atributos: \texttt{estrategia: str},
+        \texttt{perdida: float}, \texttt{particion: str}, \texttt{tiempo\_total: float}.
+\end{itemize}
+
+\figura{fig_diagrama_clases.png}{0.95}%
+  {Diagrama de clases UML del proyecto K-QGMIP. Se muestran relaciones de herencia
+   (\textit{generalización}), composición y dependencia. Los atributos con \texttt{\_}
+   prefijo son privados; sin prefijo son públicos.}%
+  {diagrama_clases}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\subsection{Diagrama de Paquetes}
+% ─────────────────────────────────────────────────────────────────────────────
+
+El proyecto está organizado en dos submódulos paralelos (\texttt{GeoMIP/} y
+\texttt{QNodes/}) que comparten la misma estructura interna:
+
+\begin{itemize}
+  \item \texttt{code/GeoMIP/} y \texttt{code/QNodes/}: raíces de cada submódulo.
+        Contienen el script de entrada (\texttt{exec\_kgeomip.py} /
+        \texttt{exec\_kqnodes.py}) y el entorno virtual compartido
+        (\texttt{code/.venv/}).
+
+  \item \texttt{src/models/base/}: clases \texttt{System}, \texttt{NCube},
+        \texttt{Manager} y \texttt{application} (singleton de configuración global).
+
+  \item \texttt{src/controllers/strategies/}: estrategias de cálculo.
+        En GeoMIP: \texttt{kgeomip.py}, \texttt{kgeomip\_cortes.py},
+        \texttt{geometry.py} (GeoMIP original).
+        En QNodes: \texttt{kqnodes.py}, \texttt{qnodes.py} (QNodes original).
+
+  \item \texttt{src/utils/}: utilidades compartidas — \texttt{emd.py}
+        (EMD-Effect), \texttt{logger.py} (SafeLogger), \texttt{profiler.py}.
+
+  \item \texttt{data/}: datos de prueba.
+        \texttt{DatosPruebas2026\_1.xlsx} (casos de prueba en Excel) y
+        \texttt{data/samples/} (TPMs en formato CSV: \texttt{N5A.csv},
+        \texttt{N8A.csv}, \ldots, \texttt{N25A.csv}).
+
+  \item \texttt{results/kgeomip/} y \texttt{results/kqnodes/}: resultados
+        generados automáticamente en formato CSV y Markdown.
+
+  \item \texttt{tests/}: pruebas unitarias e integración
+        (\texttt{test\_regresion\_k2\_igual\_qnodes.py},
+        \texttt{test\_ab\_c1\_vs\_c4\_n5.py}, etc.).
+\end{itemize}
+
+\figura{fig_diagrama_paquetes.png}{0.88}%
+  {Diagrama de paquetes UML del proyecto K-QGMIP. Las flechas de dependencia
+   indican importaciones entre paquetes. Los paquetes con borde doble son
+   nuevos en la extensión k-particiones.}%
+  {diagrama_paquetes}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\subsection{Diagramas de Secuencia (UML)}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\subsubsection*{Secuencia 1 — Inicialización del sistema y carga de datos}
+
+El flujo de inicialización parte del script \texttt{exec} y termina con el
+subsistema preparado en memoria. Los pasos son:
+
+\begin{enumerate}
+  \item \texttt{exec} llama a \texttt{iniciar\_kgeomip/kqnodes(estado, k, variante)}.
+  \item \texttt{main} lee el Excel con \texttt{\_leer\_pruebas\_excel(ruta, n)}.
+  \item \texttt{main} construye \texttt{Manager(estado\_inicial)} y llama a
+        \texttt{manager.cargar\_red()}, que lee el archivo \texttt{N\{n\}A.csv}
+        y retorna la TPM como \texttt{ndarray}.
+  \item Se instancia \texttt{KGeoMIP(manager)} o \texttt{KQNodes(tpm)}.
+  \item Para cada fila del Excel: \texttt{main} convierte letras a máscaras
+        binarias y llama a \texttt{aplicar\_estrategia(...)}.
+\end{enumerate}
+
+\figura{fig_secuencia_inicializacion.png}{0.92}%
+  {Diagrama de secuencia UML — Inicialización del sistema y carga de datos.
+   Los objetos participantes son \texttt{exec}, \texttt{main}, \texttt{Manager}
+   y \texttt{KGeoMIP}/\texttt{KQNodes}.}%
+  {secuencia_inicializacion}
+
+\subsubsection*{Secuencia 2 — Búsqueda de la k-MIP}
+
+Una vez preparado el subsistema, el flujo de búsqueda de la k-MIP es:
+
+\begin{enumerate}
+  \item \texttt{aplicar\_estrategia} llama a \texttt{sia\_preparar\_subsistema},
+        que ejecuta \texttt{condicionar()} y \texttt{substraer()} sobre la TPM.
+  \item KGeoMIP llama internamente a \texttt{GeometricSIA.aplicar\_estrategia}
+        para obtener la bipartición ancla ($k=2$). KQNodes procede directamente
+        al refinamiento.
+  \item Se ejecutan $k-1$ iteraciones del refinamiento: en cada una se selecciona
+        la parte candidata (MinHeap en C4 / mayor parte en C1), se bipartite con
+        Queyranne/GeoMIP y se actualizan las estructuras de datos.
+  \item Al terminar, se calcula \texttt{\_calcular\_phi\_total(particion, sistema)}
+        con una única evaluación EMD-Effect.
+  \item Se retorna el objeto \texttt{Solution(estrategia, perdida, particion, tiempo)}.
+\end{enumerate}
+
+\figura{fig_secuencia_kmip.png}{0.92}%
+  {Diagrama de secuencia UML — Búsqueda de la k-MIP para $k$ dado.
+   Se muestran las interacciones entre \texttt{KGeoMIP}/\texttt{KQNodes},
+   \texttt{System}, \texttt{NCube} y las funciones auxiliares de EMD.}%
+  {secuencia_kmip}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\subsection{Patrones de Diseño Aplicados}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\subsubsection*{Template Method}
+
+La clase abstracta \textbf{SIA} define el esqueleto del algoritmo en
+\texttt{sia\_preparar\_subsistema}: el flujo de condicionamiento y substracción
+es invariante; solo varía \texttt{aplicar\_estrategia}, que cada subclase
+implementa. Esto garantiza que cualquier nueva estrategia de k-partición que
+herede de SIA obtenga automáticamente la preparación del subsistema sin
+duplicar código.
+
+\subsubsection*{Strategy}
+
+Las variantes \texttt{E4} y \texttt{A} (en KGeoMIP) y los criterios \texttt{C4}
+y \texttt{C1} (en KQNodes) son estrategias intercambiables en tiempo de ejecución.
+El parámetro \texttt{variante}/\texttt{criterio} actúa como selector de estrategia,
+y el dispatcher interno (\texttt{\_mejor\_corte} en KGeoMIP, \texttt{\_buscar\_particion}
+en KQNodes) delega en la implementación correspondiente sin modificar la interfaz
+pública.
+
+\subsubsection*{Flyweight / Memoización}
+
+Los cachés \texttt{\_marg\_cache} (marginales por máscara de bits),
+\texttt{\_costo\_cache} (costo por frozenset de parte) y \texttt{\_means\_cache}
+(medias del oracle por bloque) evitan recomputar resultados costosos. La clave
+de subsistema \texttt{(condicion, alcance, mecanismo)} permite reutilizar la
+matriz $S$, la vista n-dimensional y la solución $k=2$ entre llamadas consecutivas
+sobre el mismo subsistema (frecuente al barrer $k \in \{2,3,4,5\}$).
+
+\subsubsection*{Singleton}
+
+El objeto \texttt{aplicacion} (en \texttt{src/models/base/application.py}) es un
+singleton de configuración global que gestiona el nombre de la muestra de red activa,
+el flag de profiling y la semilla aleatoria. Su uso centraliza la configuración y
+evita pasar parámetros de entorno a través de múltiples capas de la jerarquía.
+
+% ─────────────────────────────────────────────────────────────────────────────
+\subsection{Decisiones Arquitectónicas Clave}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\subsubsection*{Reutilización vs. reimplementación }
+
+Tanto KGeoMIP como KQNodes \textbf{reutilizan} sus anclas de bipartición
+(GeometricSIA y \texttt{qnodes()}) en lugar de reimplementarlas. Esta decisión:
+\begin{itemize}
+  \item Garantiza la regresión exacta $k=2$ sin pruebas adicionales sobre el caso base.
+  \item Reduce la superficie de código mantenible en $\sim$600 líneas de código duplicado.
+  \item Asegura que las correcciones futuras al caso base se propaguen automáticamente
+        a las extensiones k-particiones.
+\end{itemize}
+El trade-off es un acoplamiento fuerte: si la API de \texttt{GeometricSIA} o
+\texttt{qnodes()} cambia, KGeoMIP y KQNodes deben actualizarse.
+
+\subsubsection*{Caché local por bloque vs. caché global}
+
+En KQNodes, el caché de medias del oracle (\texttt{\_means\_cache}) es \textbf{local}
+a cada llamada a \texttt{\_oracle\_restringido}, no global. Esto es correcto porque dos
+bloques distintos $P_i$ y $P_j$ pueden tener la misma máscara numérica local (e.g.,
+\texttt{0b01}) pero con semántica diferente (en $P_i = \{0,2\}$ el bit 0 es la dim
+global 0; en $P_j = \{3,4\}$ el bit 0 es la dim global 3). Un caché global produciría
+resultados incorrectos.
+
+\subsubsection*{EMD real solo al final }
+
+Tanto KGeoMIP como KQNodes calculan la EMD-Effect real \textbf{una sola vez} al final,
+sobre la k-partición ganadora. Durante el refinamiento se usa una función proxy más
+barata ($\Delta\Phi$ incremental en KGeoMIP, la función $f_{\text{local}}$ en KQNodes).
+Esta separación reduce el número de evaluaciones EMD de $\mathcal{O}(k \cdot D^2)$ a
+$\mathcal{O}(1)$, que para $D=20$ representa una reducción de 3 órdenes de magnitud.
+
+\subsubsection*{Separación de responsabilidades}
+
+\begin{itemize}
+  \item \texttt{SIA}: preparación del subsistema (condicionamiento, substracción).
+  \item \texttt{KGeoMIP} / \texttt{KQNodes}: búsqueda de la k-partición óptima.
+  \item \texttt{System} / \texttt{NCube}: representación y manipulación de datos causales.
+  \item \texttt{main\_*}: orquestación batch, I/O Excel/CSV.
+  \item \texttt{exec\_*}: configuración de usuario.
+\end{itemize}
+Esta separación permite sustituir cualquier capa sin modificar las demás, y facilita
+las pruebas unitarias de cada componente de forma aislada.

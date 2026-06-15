@@ -1,0 +1,224 @@
+% ============================================================
+% §2.8 · Limitaciones y Trabajo Futuro — Manual Técnico K-QGMIP
+% ============================================================
+
+\section{Limitaciones y Trabajo Futuro}
+
+Esta sección presenta un análisis crítico del enfoque implementado: las
+restricciones inherentes al diseño, los supuestos asumidos durante el
+desarrollo y las vías de mejora identificadas.
+
+% ─────────────────────────────────────────────────────────────────────────────
+\subsection{Limitaciones Conocidas}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\subsubsection*{L1 — No optimalidad global para $k \geq 3$}
+
+Ni KGeoMIP ni KQNodes garantizan encontrar la $k$-partición de mínimo
+$\varphi$ cuando $k \geq 3$.
+Ambas estrategias utilizan refinamiento greedy iterativo: en cada paso se
+escoge la bipartición que minimiza el costo local sin explorar el espacio
+completo $\mathcal{S}(n,k)$ (número de Stirling).
+El resultado es una heurística de alta calidad, pero puede quedar atrapada
+en mínimos locales.
+
+\begin{itemize}
+  \item \textbf{KGeoMIP E4}: el árbol de refinamiento está anclado en la
+        bipartición raíz que produce GeoMIP. Cualquier $k$-partición que
+        no sea un refinamiento de esa bipartición raíz queda fuera del
+        espacio de búsqueda.
+        Empíricamente, para $k=3$ y $n \in \{5,6,8\}$ el \textit{gap}
+        con el óptimo es $0$ (exacto); para $k=4$, $n=5$, el gap oscila
+        entre $0.25$ y $0.375$.
+
+  \item \textbf{KQNodes C4}: el refinamiento es greedy sobre el MinHeap
+        ordenado por $\varphi_{\text{local}}$. La función $f_{\text{local}}$
+        es submodular solo para biparticiones (Queyranne es exacto
+        \emph{dentro} de cada bloque), pero el greedy global no minimiza
+        el $\varphi$ conjunto.
+        La literatura (Kitazono et al., 2018) reporta exactitud empírica
+        del 97--100\,\% respecto al óptimo exhaustivo.
+\end{itemize}
+
+\subsubsection*{L2 — Explosión exponencial del espacio de estados}
+
+El espacio de estados de un sistema de $n$ nodos binarios es $N = 2^n$.
+Toda operación sobre distribuciones de probabilidad — marginalización,
+producto tensorial, EMD-Effect — crece al menos linealmente con $N$.
+Para $n = 20$: $N = 1\,048\,576$ estados; para $n = 25$: $N \approx
+33\,\text{M}$ estados.
+Los experimentos muestran que KQNodes pasa de $0.007\,\text{s}$
+($n=10$) a $3.17\,\text{s}$ ($n=20$) en promedio, con casos individuales
+de hasta $24.6\,\text{s}$ para subsistemas completos de 20 nodos.
+Para $n \geq 22$ la ejecución requiere decenas de gigabytes de RAM cuando
+el subsistema tiene alcance y mecanismo completos.
+
+\subsubsection*{L3 — Cobertura de estados iniciales}
+
+Los experimentos ejecutados cubren dos muestras de red distintas
+y varios tamaños:
+
+\begin{itemize}
+  \item \textbf{Muestra A}: KQNodes $n \in \{8,10,20\}$, $k=5$, C4;
+        KGeoMIP $n=10$, $k=3$, E4.
+  \item \textbf{Muestra B}: KGeoMIP $n=15$, $k=3$, E4 —
+        50 pruebas, $\varphi_{\text{avg}}=0.0074$,
+        $\varphi_{\max}=0.0209$, $t_{\text{avg}}=0.456\,\text{s}$.
+\end{itemize}
+
+La ejecución con la muestra B confirma que el sistema produce resultados
+coherentes en redes con estructuras causales distintas a la muestra A
+(los valores de $\varphi$ en N15B son un orden de magnitud menores que
+en N10A, lo que refleja las diferencias en la distribución de probabilidad
+de cada red).
+
+La restricción remanente es el estado inicial: todos los experimentos
+usan \texttt{"100\ldots0"} (nodo A activo, resto en $0$).
+Estados iniciales con múltiples nodos activos cambiarían el pivote desde
+el cual GeoMIP construye la tabla de distancias $T$, y no han sido
+evaluados sistemáticamente.
+
+\subsubsection*{L4 — $k$ limitado a $5$ en la implementación actual}
+
+El parámetro $k$ está restringido a $k \in \{2,3,4,5\}$ en los scripts
+de ejecución (\texttt{exec\_kgeomip.py}, \texttt{exec\_kqnodes.py}).
+Aunque el algoritmo es teóricamente extensible a $k > 5$, los archivos
+de prueba del Excel (\texttt{DatosPruebas2026\_1.xlsx}) solo contemplan
+hasta $k=5$ y la cobertura de tests no valida $k > 5$.
+
+
+% ─────────────────────────────────────────────────────────────────────────────
+\subsection{Supuestos y Restricciones del Diseño}
+% ─────────────────────────────────────────────────────────────────────────────
+
+Los siguientes supuestos están presentes en la implementación y deben
+tenerse en cuenta al aplicar el sistema en otros contextos:
+
+\begin{enumerate}
+  \item \textbf{Nodos binarios}: tanto la TPM como los NCubes asumen que
+        cada nodo tiene exactamente dos estados ($0$ o $1$).
+        Sistemas con variables de múltiples estados requieren una
+        refactorización profunda del layout de datos (\texttt{\_flat\_T},
+        remapeo de máscaras).
+
+  \item \textbf{Condición de fondo ``todos candidatos''}: los scripts de
+        ejecución fijan \texttt{condicion = "1" * n}, es decir, ningún
+        nodo se condiciona al estado de fondo.
+        Esto representa el caso más general, pero excluye análisis con
+        subsistemas condicionados parcialmente.
+
+  \item \textbf{Submodularidad de $f_{\text{local}}$}: KQNodes asume que
+        la función proxy $f_{\text{local}}(A) = \sum_i \min(|\bar{x}_B^{(i)}
+        - p_i|,\, |\bar{x}_A^{(i)} - p_i|)$ es una aproximación válida
+        de la EMD-Effect. Esta función es simétrica pero no es submodular
+        en general. Queyranne es exacto para funciones submodulares
+        simétricas; su aplicación aquí produce biparticiones óptimas con
+        alta probabilidad pero sin garantía formal.
+
+  \item \textbf{Monotonicidad de $\varphi(k)$}: la garantía de que
+        $\varphi(k+1) \geq \varphi(k)$ se cumple por construcción
+        (cada nivel añade una partición sobre la anterior).
+        Sin embargo, esto no implica que $\varphi(k)$ sea óptimo — solo
+        que el proceso es coherente.
+
+  \item \textbf{Umbral de enumeración en KGeoMIP}: el parámetro
+        \texttt{\_UMBRAL\_ENUMERACION = 4096} determina cuándo
+        \texttt{\_mejor\_corte} pasa de enumeración exhaustiva a la
+        heurística \texttt{guiado\_S}.
+        Bloques con $|P| > 13$ activan la heurística, cuya calidad
+        depende de que la matriz de similitud $S$ refleje fielmente las
+        relaciones causales del subsistema.
+\end{enumerate}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\subsection{Mejoras Potenciales}
+% ─────────────────────────────────────────────────────────────────────────────
+
+
+\subsubsection*{M1 — Vectorización del oracle por lotes}
+
+Actualmente el oracle en KQNodes evalúa una máscara a la vez.
+Si se vectorizan $B$ máscaras simultáneamente (batch processing con
+\texttt{numpy} sobre el eje de máscaras), el \textit{overhead} de llamadas
+Python se reduce significativamente.
+Queyranne requiere $\mathcal{O}(D^2)$ evaluaciones del oracle; con batching
+de $B=64$ o $B=128$, el número de llamadas se reduciría en ese factor.
+
+\subsubsection*{M2 — Exploración de múltiples raíces en KGeoMIP}
+
+En lugar de anclar el refinamiento divisivo a la única bipartición raíz
+de GeoMIP, se podría explorar las $r$ biparticiones de menor costo
+(ya evaluadas por GeoMIP en su barrido de candidatos) y ejecutar
+E4 desde cada una de ellas.
+La solución final sería el mínimo global entre los $r$ árboles.
+Esto incrementaría el tiempo en factor $r$ pero reduciría el gap
+para $k \geq 4$.
+
+\subsubsection*{M3 — Validación cruzada entre muestras de red}
+
+Para poder generalizar los resultados, se debería ejecutar el sistema
+sobre múltiples muestras de red (B, C, D, \ldots) por cada tamaño $n$,
+y reportar la varianza de $\varphi$ entre muestras.
+Los archivos de datos ya contemplan el parámetro \texttt{MUESTRA} para
+este propósito; solo se requiere lanzar ejecuciones adicionales con
+\texttt{MUESTRA = "B"}, \texttt{"C"}, etc.
+
+\subsubsection*{M4 — Cobertura de tests al 100\,\%}
+
+La cobertura actual de KGeoMIP es del 91\,\%.
+El 9\,\% restante incluye ramas de error ($D=0$, bloque vacío, fallo de
+lectura del Excel) y la variante \texttt{"A"} en sus casos extremos.
+Incorporar estos tests aumentaría la confianza en el sistema para entradas
+atípicas.
+
+% ─────────────────────────────────────────────────────────────────────────────
+\subsection{Direcciones de Investigación Futura}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\subsubsection*{F1 — $k$-way Queyranne con garantías}
+
+La literatura no cuenta con una extensión directa del algoritmo de
+Queyranne al caso $k > 2$ con garantías de optimalidad.
+Una dirección de investigación abierta es explorar si la estructura
+submodular de $f_{\text{local}}$ puede explotarse para construir una
+$k$-partición óptima en tiempo polinomial mediante técnicas de
+programación semidefinida o relajación SDP.
+
+\subsubsection*{F2 — Extensión a sistemas de múltiples estados}
+
+IIT~4.0 define $\varphi$ para sistemas binarios, pero los fenómenos
+naturales (neuronas de tasa, modelos de Potts) pueden requerir variables
+con $s > 2$ estados.
+Extender KGeoMIP y KQNodes a sistemas multinivel requiere redefinir el
+layout de NCubes, el oracle $f_{\text{local}}$, y la métrica EMD-Effect
+sobre distribuciones de mayor dimensión.
+
+\subsubsection*{F3 — Comparación con métodos exactos en tamaños medianos}
+
+Para $n \leq 12$ es factible la búsqueda exhaustiva de la $k$-partición
+óptima (el número de Stirling $\mathcal{S}(12, 5) \approx 179\,\text{M}$
+es manejable con filtrado).
+Una evaluación sistemática del gap $|\varphi_{\text{heurístico}} -
+\varphi_{\text{óptimo}}|$ para todos los casos del Excel con $n \in
+\{5, 8, 10\}$ permitiría cuantificar empíricamente la calidad de E4 y C4
+y orientar futuras decisiones de diseño.
+
+\subsubsection*{F4 — Implementación GPU para $n \geq 20$}
+
+El cálculo de medias y marginalización sobre arrays de forma
+$(2^{20}, D)$ es altamente paralelizable en GPU.
+Una implementación con \texttt{CuPy} o \texttt{PyTorch} (reemplazando
+los arrays \texttt{numpy}) podría reducir el tiempo de los casos
+$n=20$ de segundos a milisegundos, habilitando experimentos con
+$n \in \{22, 25\}$ en tiempos razonables.
+
+\subsubsection*{F5 — Criterios de selección alternativos en KQNodes}
+
+El criterio C4 selecciona la parte de menor $\varphi_{\text{local}}$
+para bipartir.
+Se identificaron otros criterios (C1: mayor tamaño; C2: mayor $\varphi$;
+C3: aleatorio) durante el diseño.
+Un estudio comparativo completo con múltiples redes y valores de $n, k$
+permitiría identificar si existen configuraciones donde C4 es superado
+por algún criterio alternativo, o si C4 es dominante en toda la familia
+de problemas considerada.

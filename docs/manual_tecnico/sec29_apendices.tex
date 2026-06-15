@@ -1,0 +1,305 @@
+% ============================================================
+% §2.9 · Apéndices Técnicos — Manual Técnico K-QGMIP
+% ============================================================
+
+\section{Apéndices Técnicos}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\subsection{Demostraciones}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\subsubsection*{Proposición 1 — Monotonicidad $\varphi(k+1) \geq \varphi(k)$}
+
+\textbf{Enunciado.} Sea $\Pi^{(k)}$ la $k$-partición producida por E4 o C4
+para un sistema dado. Entonces $\varphi(k+1) \geq \varphi(k)$ para todo
+$k \geq 1$.
+
+\textbf{Demostración.}
+La función objetivo es
+\[
+  \Phi(\Pi) = \mathrm{EMD}\!\left(p(s_{t+1}),\;
+              \bigotimes_{P_i \in \Pi} p_{P_i}(s_{t+1}^{(P_i)})\right).
+\]
+Ambas estrategias son \emph{divisivas}: $\Pi^{(k+1)}$ se obtiene de
+$\Pi^{(k)}$ partiendo exactamente una parte $P_j$ en dos partes
+$A \cup B = P_j$, $A \cap B = \emptyset$.
+Sea $\mathcal{M}_\Pi$ el conjunto de distribuciones de la forma
+$\bigotimes_{P_i} p_{P_i}$ para particiones más finas o iguales que $\Pi$.
+Como $\Pi^{(k+1)}$ refina $\Pi^{(k)}$, se tiene
+$\mathcal{M}_{\Pi^{(k+1)}} \subseteq \mathcal{M}_{\Pi^{(k)}}$.
+La EMD-Effect es la distancia (norma $L_1$) entre la distribución real
+$p(s_{t+1})$ y el producto tensorial.
+Si el espacio de factorizaciones disponibles se achica
+($\mathcal{M}_{\Pi^{(k+1)}} \subseteq \mathcal{M}_{\Pi^{(k)}}$),
+la distancia mínima no puede disminuir:
+\[
+  \Phi\!\left(\Pi^{(k+1)}\right)
+    = \mathrm{EMD}\!\left(p,\, \mathcal{M}_{\Pi^{(k+1)}}\right)
+    \geq \mathrm{EMD}\!\left(p,\, \mathcal{M}_{\Pi^{(k)}}\right)
+    = \Phi\!\left(\Pi^{(k)}\right). \qquad \square
+\]
+
+\subsubsection*{Proposición 2 — Regresión exacta $k=2$ de E4}
+
+\textbf{Enunciado.} $\mathrm{KGeoMIP}(k{=}2) \equiv \mathrm{GeoMIP}$, es
+decir, producen la misma bipartición con $|\Delta\varphi| < 10^{-9}$.
+
+\textbf{Demostración.}
+En la FASE 2 del pseudocódigo de E4 (ver §A.2), se llama directamente a
+\texttt{GeoMIP.aplicar\_estrategia()} sobre $V$ completo y se retorna su
+\texttt{Solution} sin modificación.
+Para $k=2$ el bucle de la FASE 3 no ejecuta ninguna iteración
+($j = 3\ldots k = 2$ es vacío).
+Luego la partición retornada por E4 en $k=2$ es exactamente la partición
+de GeoMIP, y $\Phi$ se calcula con la misma función
+\texttt{\_calcular\_phi\_total} sobre esa misma bipartición. $\square$
+
+\subsubsection*{Proposición 3 — Aditividad de la EMD-Effect}
+
+\textbf{Enunciado.}
+Dada una $k$-partición $\Pi = \{P_1, \ldots, P_k\}$,
+la función objetivo se descompone aditivamente como
+$\Phi(\Pi) = \sum_{i=1}^{k} \mathrm{costo}(P_i)$,
+donde $\mathrm{costo}(P_i) = \sum_{d \in P_i} \left| p_d - \bar{x}_d(P_i) \right|$.
+
+\textbf{Demostración.}
+La EMD-Effect bajo la métrica $L_1$ es
+$\mathrm{EMD}(u, v) = \sum_d |u_d - v_d|$.
+La distribución reconstruida $v = \bigotimes_{P_i} p_{P_i}$ asigna a cada
+nodo $d \in P_i$ su marginal $\bar{x}_d(P_i)$ (promedio sobre el estado
+de los demás nodos del bloque en el estado inicial).
+Entonces:
+\[
+  \Phi(\Pi)
+    = \sum_d \left| p_d - \bar{x}_d(P_{[d]}) \right|
+    = \sum_{i=1}^{k} \sum_{d \in P_i} \left| p_d - \bar{x}_d(P_i) \right|
+    = \sum_{i=1}^{k} \mathrm{costo}(P_i).
+\]
+Esta aditividad justifica el cálculo incremental $\Delta\Phi$ :
+al bipartir $P_j$ en $A$ y $B$, el incremento exacto es
+$\Delta\Phi = \mathrm{costo}(A) + \mathrm{costo}(B) - \mathrm{costo}(A \cup B)
+= \Phi(\Pi^{(k+1)}) - \Phi(\Pi^{(k)})$. $\square$
+
+% ─────────────────────────────────────────────────────────────────────────────
+\subsection{Detalles Algorítmicos Adicionales}
+\label{sec:apendice_algoritmos}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\subsubsection*{A.1 — Pseudocódigo completo de KQNodes C4 con MinHeap}
+
+El siguiente pseudocódigo describe el criterio C4 implementado en
+\texttt{KQNodes.aplicar\_estrategia}:
+
+\begin{verbatim}
+Entrada: V (nodos del subsistema), k, oracle Queyranne
+Salida:  Particion Pi de k partes, Phi*
+
+FASE 1: Inicializar
+  Pi <- { V }
+  (A*, B*, phi_loc) <- QNodes(V)           # Queyranne sobre V completo
+  MinHeap.insertar((phi_loc, A*, B*, V))   # clave: phi_loc minima
+
+FASE 2: Refinar k-1 veces
+  Para j = 1 hasta k-1:
+    (phi_sel, A_sel, B_sel, P_sel) <- MinHeap.extraer_min()
+    Pi <- (Pi - {P_sel}) U {A_sel, B_sel}
+    Para hijo en {A_sel, B_sel} con |hijo| >= 2:
+      (A', B', phi') <- QNodes(hijo)
+      MinHeap.insertar((phi', A', B', hijo))
+
+FASE 3: Calcular Phi* exacto
+  Phi* <- EMD(p(s_{t+1}), kron_{Pi_i in Pi} p_{Pi_i})
+  Retornar (Pi, Phi*)
+\end{verbatim}
+
+\textbf{Complejidad}: $\mathcal{O}(k \cdot D^3 \cdot N)$ con caché del oracle.
+El heap ejecuta $k{-}1$ extracciones y a lo sumo $2(k{-}1)$ inserciones.
+Queyranne sobre cada parte de tamaño $D' \leq D$ cuesta $\mathcal{O}(D'^3 \cdot N)$.
+
+\subsubsection*{A.2 — Pseudocódigo completo de KGeoMIP E4}
+
+El siguiente pseudocódigo describe la estrategia E4 implementada en
+\texttt{KGeoMIP.aplicar\_estrategia}:
+
+\begin{verbatim}
+Entrada: V (nodos), k, tabla T, estrategia_corte in {auto, exhaustivo, guiado_S}
+Salida:  Particion Pi de k partes, Phi*
+
+FASE 0: k=1 -> retornar ({V}, 0)
+
+FASE 1: Construir S (una sola vez por subsistema)
+  S[i,j] <- similitud causal entre nodos i, j via T   # O(n^2 * 2^n)
+
+FASE 2: k=2 -> ancla GeoMIP
+  (A_raiz, B_raiz, Phi_2) <- GeoMIP.find_mip(V, T)
+  Si k = 2: retornar ({A_raiz, B_raiz}, Phi_2)
+  # Contraste: comparar con MejorCorte(V) bajo modelo k;
+  # el menor DeltaPhi gana (empate: favor ancla GeoMIP)
+  Pi <- { A_raiz, B_raiz }
+  MinHeap.insertar((DeltaPhi_raiz, A_raiz, B_raiz, V))
+
+FASE 3: Para j = 3 hasta k:
+  (DeltaPhi_sel, A_sel, B_sel, P_sel) <- MinHeap.extraer_min()
+  Pi <- (Pi - {P_sel}) U {A_sel, B_sel}
+  Para hijo en {A_sel, B_sel} con |hijo| >= 2:
+    (A', B', DeltaPhi') <- MejorCorte(hijo, T, S, estrategia_corte)
+    MinHeap.insertar((DeltaPhi', A', B', hijo))
+
+FASE 4: Phi* <- EMD(p(s_{t+1}), kron_{Pi_i in Pi} p_{Pi_i})
+  Retornar (Pi, Phi*)
+
+MejorCorte(P, T, S, modo):
+  Si modo = "auto":
+    Si 2^(|P|-1)-1 <= 4096: modo <- "exhaustivo"
+    Si no:                   modo <- "guiado_S"
+  Si modo = "exhaustivo":
+    Evaluar todas las biparticiones de P; retornar argmin DeltaPhi
+  Si modo = "guiado_S":
+    Generar hasta 20 candidatos por afinidad cruzada en S
+    Evaluar DeltaPhi para cada candidato; retornar el minimo
+\end{verbatim}
+
+\subsubsection*{A.3 — Desempate determinístico en E4}
+
+Cuando dos o más partes tienen el mismo $\Delta\Phi$ (diferencia $< 10^{-9}$),
+el MinHeap aplica el siguiente orden lexicográfico:
+
+\begin{enumerate}
+  \item \textbf{Orden BFS de GeoMIP}: preferir el corte en el orden en que
+        GeoMIP evaluaría sus candidatos (heurística 1 por índice de variable,
+        luego heurística 2 por nivel BFS).
+        Garantiza reproducir exactamente el desempate de GeoMIP en $k=2$.
+  \item \textbf{Menor cardinalidad}: preferir la parte de menor $|P_i|$.
+  \item \textbf{Índice léxico}: preferir la parte cuyo menor elemento tiene
+        menor índice.
+\end{enumerate}
+
+La clave de prioridad en el heap es la tupla
+$(\Delta\Phi,\; \text{bfs\_order},\; |P_i|,\; \min(\text{índices}(P_i)))$,
+cuya comparación lexicográfica en Python implementa el desempate sin
+estado externo ni semilla aleatoria.
+
+\subsubsection*{A.4 — Memoización canónica de NCube.marginalizar }
+
+El método \texttt{NCube.marginalizar(ejes)} computa la marginalización
+de un hipercubo sumando sobre los ejes especificados.
+La optimización introduce dos cambios:
+
+\begin{enumerate}
+  \item \textbf{Clave canónica por máscara de bits}:
+        en lugar de \texttt{tuple(ejes)}, la clave del caché es
+        \texttt{int(máscara) = ejes $\cap$ dims} expresado como bitmask.
+        Esto hace que llamadas con distintos órdenes de ejes o con ejes
+        fuera de \texttt{dims} apunten a la misma entrada.
+
+  \item \textbf{Caché de instancias NCube completas}:
+        el caché almacena la instancia \texttt{NCube} resultante, no solo el
+        array de datos.
+        Como \texttt{NCube} es inmutable (\texttt{frozen=True}),
+        es seguro compartir la misma instancia entre llamadores.
+        Cadenas incrementales (p.ej., el oracle de Queyranne pidiendo
+        $A$, luego $A \cup \{d\}$) reutilizan los nodos ya calculados
+        en vez de recomputarlos.
+\end{enumerate}
+
+\textbf{Impacto medido}: el hot path de marginalizaciones repetidas
+pasa de $583\,\text{ms}$ a $13\,\text{ms}$ para $10^4$ llamadas con $n=10$
+(factor $45\times$); los barridos KGeoMIP/KQNodes mejoran un 6--12\,\%.
+
+% ─────────────────────────────────────────────────────────────────────────────
+\subsection{Resultados Experimentales Complementarios}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\subsubsection*{Comparación entre muestras A y B — KGeoMIP $k=3$}
+
+La Tabla~\ref{tab:comparacion_muestras} consolida los resultados de KGeoMIP
+para las dos muestras de red ejecutadas: N10A (muestra A) y N15B (muestra B).
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llrrrrrr}
+  \toprule
+  \textbf{Config.} & \textbf{Muestra} & \textbf{Casos} &
+  $\varphi_{\min}$ & $\varphi_{\mathrm{avg}}$ & $\varphi_{\max}$ &
+  $t_{\mathrm{avg}}$ (s) & $t_{\mathrm{total}}$ (s) \\
+  \midrule
+  KGeoMIP $n=10$, $k=3$ & A & 49 & 0.0283 & 1.0156 & 3.3848 & 0.0252 &  1.23 \\
+  KGeoMIP $n=15$, $k=3$ & B & 50 & 0.0004 & 0.0074 & 0.0209 & 0.4556 & 22.78 \\
+  \bottomrule
+\end{tabular}
+\caption{Comparación entre muestras A ($n=10$) y B ($n=15$) para KGeoMIP E4, $k=3$.
+  Los valores de $\varphi$ en N15B son dos órdenes de magnitud menores que en N10A,
+  lo que refleja las diferencias en la distribución causal de cada red.}
+\label{tab:comparacion_muestras}
+\end{table}
+
+\textbf{Observación}: el caso más costoso de N15B es el subsistema completo
+(caso 1: ABCDEFGHIJKLMNO $\times$ ABCDEFGHIJKLMNO, $t=2.09\,\text{s}$),
+mientras que los subsistemas de 7--8 nodos terminan en $<0.1\,\text{s}$.
+La estrategia \texttt{"auto"} activa \texttt{guiado\_S} para bloques de
+$|P| > 13$, lo que mantiene el tiempo total bajo 23\,s para 50 casos.
+
+\subsubsection*{Benchmark de gap de optimalidad — KGeoMIP E4}
+
+La Tabla~\ref{tab:gap_geomip} muestra el gap de optimalidad antes y después
+de la optimización ($\Delta\Phi$ incremental exacto + raíz consistente con el
+modelo $k$) sobre un conjunto de casos de prueba con $n \in \{5,6,8\}$.
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lcrr}
+  \toprule
+  \textbf{Caso} & $k$ & \textbf{Gap antes} & \textbf{Gap después} \\
+  \midrule
+  N5A, estado \texttt{10000} & 4 & 0.375 & 0.250 \\
+  N5A, estado \texttt{11111} & 4 & 0.125 & 0.125 \\
+  N6A, estado \texttt{100000} & 3 & 0.406 & \textbf{0 (exacto)} \\
+  N6A, estado \texttt{100000} & 4 & 0.250 & \textbf{0 (exacto)} \\
+  N8A, estado \texttt{10000000} & 3 & 1.000 & \textbf{0 (exacto)} \\
+  N8A, estado \texttt{10000000} & 4 & 1.000 & \textbf{0 (exacto)} \\
+  \bottomrule
+\end{tabular}
+\caption{Gap de optimalidad $\varphi_{\text{E4}} - \varphi_{\text{óptimo}}$ antes y
+  después. El gap se mide vs. búsqueda exhaustiva BruteForce-k.}
+\label{tab:gap_geomip}
+\end{table}
+
+
+% ─────────────────────────────────────────────────────────────────────────────
+\subsection{Referencias}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\begin{enumerate}
+  \item \textbf{Albantakis, L., Barbosa, L., Findlay, G., Signorelli, C.\,M.,
+        Marshall, W., Koch, C., \& Tononi, G.} (2023).
+        Integrated information theory (IIT) 4.0: Formulating the properties
+        of phenomenal existence in physical terms.
+        \textit{PLOS Computational Biology}, 19(10), e1011465.
+
+  \item \textbf{Kitazono, J., Kanai, R., \& Oizumi, M.} (2018).
+        Efficient algorithms for searching the minimum information partition
+        in integrated information theory.
+        \textit{Entropy}, 20(3), 173.
+
+  \item \textbf{Queyranne, M.} (1998).
+        Minimizing symmetric submodular functions.
+        \textit{Mathematical Programming}, 82(1--2), 3--12.
+
+  \item \textbf{Oizumi, M., Albantakis, L., \& Tononi, G.} (2014).
+        From the phenomenology to the mechanisms of consciousness:
+        Integrated information theory 3.0.
+        \textit{PLOS Computational Biology}, 10(5), e1003588.
+
+  \item \textbf{Knuth, D.\,E.} (2011).
+        \textit{The Art of Computer Programming, Volume 4A: Combinatorial
+        Algorithms, Part 1.} Addison-Wesley.
+        (Algoritmo de generación de particiones de Stirling, §7.2.1.5.)
+
+  \item \textbf{Harris, C.\,R. et al.} (2020).
+        Array programming with NumPy.
+        \textit{Nature}, 585, 357--362.
+
+  \item \textbf{Virtanen, P. et al.} (2020).
+        SciPy 1.0: Fundamental algorithms for scientific computing in Python.
+        \textit{Nature Methods}, 17, 261--272.
+\end{enumerate}

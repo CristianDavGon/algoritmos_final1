@@ -1,0 +1,289 @@
+% ============================================================
+% §2.2 · Fundamentos Teóricos — Manual Técnico K-QGMIP
+% ============================================================
+
+\section{Fundamentos Teóricos}
+
+\subsection{Definición formal de k-particiones}
+
+\subsubsection*{Notación y definición}
+
+Sea $V = \{0, 1, \ldots, n-1\}$ el conjunto de $n$ variables binarias que componen el sistema.
+Una \textbf{k-partición} de $V$ es una familia $\Pi = \{P_1, P_2, \ldots, P_k\}$ tal que:
+
+\begin{enumerate}
+  \item \textbf{No vacuidad}: $P_i \neq \emptyset$ para todo $i = 1, \ldots, k$.
+  \item \textbf{Disjunción}: $P_i \cap P_j = \emptyset$ para todo $i \neq j$.
+  \item \textbf{Exhaustividad}: $\bigcup_{i=1}^{k} P_i = V$.
+\end{enumerate}
+
+El caso $k = 2$ corresponde a la \textbf{bipartición} clásica $(A, B)$ donde $A \cup B = V$ y
+$A \cap B = \emptyset$. El caso $k = 1$ es la \textbf{partición trivial} $\{V\}$, que no produce
+ninguna pérdida de información. El caso $k = n$ es la \textbf{atomización total}, donde cada
+variable forma su propia parte.
+
+\subsubsection*{Ejemplo ilustrativo para $n = 4$}
+
+Sea $V = \{A, B, C, D\}$ un sistema de 4 nodos. Las posibles k-particiones para distintos
+valores de $k$ son:
+
+\begin{table}[H]
+  \centering
+  \caption{Ejemplos de k-particiones del conjunto $V = \{A, B, C, D\}$.}
+  \label{tab:ejemplos_kpart}
+  \begin{tabular}{clp{7cm}}
+    \toprule
+    $k$ & Número de particiones $S(4,k)$ & Ejemplos representativos \\
+    \midrule
+    1 & 1  & $\{A,B,C,D\}$ \\
+    2 & 7  & $\{A,B\} \mid \{C,D\}$;\quad $\{A\} \mid \{B,C,D\}$ \\
+    3 & 6  & $\{A,B\} \mid \{C\} \mid \{D\}$;\quad $\{A\} \mid \{B,C\} \mid \{D\}$ \\
+    4 & 1  & $\{A\} \mid \{B\} \mid \{C\} \mid \{D\}$ \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Para $n = 4$ hay en total $\sum_{k=1}^{4} S(4,k) = 15$ particiones distintas (el número de Bell
+$B_4 = 15$). El proyecto evalúa $k \in \{2, 3, 4, 5\}$ — la partición trivial ($k=1$) se
+excluye porque no produce pérdida de información.
+
+\subsubsection*{Propiedades fundamentales}
+
+\begin{itemize}
+  \item \textbf{Refinamiento}: $\Pi'$ es un \textit{refinamiento} de $\Pi$ si cada parte de
+        $\Pi'$ está contenida en alguna parte de $\Pi$. El refinamiento iterativo que implementan
+        KGeoMIP y KQNodes produce familias anidadas de particiones.
+
+  \item \textbf{Monotonicidad de la pérdida}: si $\Pi'$ refina a $\Pi$, entonces
+        $\Phi^*(\Pi') \geq \Phi^*(\Pi)$. Esto se debe a que al dividir una parte en dos se
+        impone una restricción adicional de independencia causal, lo que solo puede mantener
+        o incrementar la pérdida.
+
+  \item \textbf{Conteo por número de Stirling}: el número de k-particiones de un conjunto de
+        $n$ elementos está dado por el \textbf{número de Stirling de segundo tipo}:
+        \begin{equation}
+          S(n, k) = \frac{1}{k!} \sum_{j=0}^{k} (-1)^{k-j} \binom{k}{j} j^n
+          \label{eq:stirling}
+        \end{equation}
+        que satisface la recurrencia $S(n,k) = k \cdot S(n-1,k) + S(n-1,k-1)$.
+\end{itemize}
+
+\subsection{Formulación del problema de optimización}
+
+\subsubsection*{Marco de IIT 4.0 — Efecto causal}
+
+En el formalismo de la Teoría de la Información Integrada versión 4.0 (IIT 4.0), cada sistema
+$\mathcal{S}$ de $n$ variables binarias se describe mediante su \textbf{Matriz de Probabilidad
+de Transición (TPM)}: la matriz $\mathbf{T} \in [0,1]^{2^n \times n}$ donde $T_{s,i}$ es la
+probabilidad de que la variable $i$ esté en estado ON en $t+1$, dado que el sistema estaba en
+el estado $s$ en $t$.
+
+Para un estado inicial $s_t \in \{0,1\}^n$, la \textbf{distribución marginal} del sistema
+sobre el futuro es el vector:
+\begin{equation}
+  p(s_{t+1} \mid s_t) = \bigl(T_{s_t, 0},\; T_{s_t, 1},\; \ldots,\; T_{s_t, n-1}\bigr)
+  \in [0,1]^n
+  \label{eq:dist_marginal}
+\end{equation}
+
+\subsubsection*{Distribución de una k-partición}
+
+Dada una k-partición $\Pi = \{P_1, \ldots, P_k\}$, la \textbf{distribución particionada}
+asume que las partes son causalmente independientes. La distribución marginal del nodo $i$
+en la parte $P_m$ se calcula marginalizando (promediando) sobre todas las variables presentes
+\textbf{fuera} de $P_m$:
+\begin{equation}
+  p_i^{(\Pi)}(s_{t+1} \mid s_t) = \sum_{\mathbf{s}_{-P_m}} T_{s_t^{(P_m)} \otimes \mathbf{s}_{-P_m},\; i}
+  \cdot p(\mathbf{s}_{-P_m})
+  \label{eq:dist_particionada}
+\end{equation}
+donde $\mathbf{s}_{-P_m}$ representa los estados de las variables fuera de $P_m$ (que se
+promedian con distribución uniforme en la implementación).
+
+\subsubsection*{Función objetivo — EMD-Effect}
+
+La \textbf{pérdida de información} de la k-partición $\Pi$ se mide mediante la
+\textit{Earth Mover's Distance} del efecto (EMD-Effect), que en IIT 4.0 bajo la geometría
+$L_1$ toma la forma analítica:
+\begin{equation}
+  \Phi^*(\Pi) = \mathrm{EMD}\!\left(
+    p(s_{t+1} \mid s_t),\;
+    \bigotimes_{m=1}^{k} p^{(P_m)}(s_{t+1} \mid s_t)
+  \right)
+  = \sum_{i=1}^{n} \left| p_i(s_{t+1} \mid s_t) - p_i^{(\Pi)}(s_{t+1} \mid s_t) \right|
+  \label{eq:phi}
+\end{equation}
+donde $\bigotimes$ denota el producto tensorial (independencia causal entre partes) y la norma
+$L_1$ actúa componente a componente sobre los vectores de distribución marginal.
+
+\subsubsection*{Problema de optimización}
+
+El problema de la \textbf{k-Partición de Mínima Información (k-MIP)} se formula como:
+\begin{equation}
+  \Pi^* = \arg\min_{\Pi \in \mathcal{P}(V,k)} \Phi^*(\Pi)
+  \label{eq:kmip}
+\end{equation}
+\begin{align*}
+  \text{sujeto a:} \quad
+  & P_i \neq \emptyset, \quad \forall i = 1, \ldots, k \\
+  & P_i \cap P_j = \emptyset, \quad \forall i \neq j \\
+  & \bigcup_{i=1}^{k} P_i = V
+\end{align*}
+donde $\mathcal{P}(V, k)$ denota el conjunto de todas las k-particiones de $V$.
+
+El valor óptimo $\Phi^*(\Pi^*)$ cuantifica la \textbf{información integrada de orden $k$}: si
+es pequeño, el sistema puede descomponerse en $k$ partes casi independientes; si es grande,
+el sistema es causalmente irreducible a nivel de $k$ partes.
+
+\subsection{Extensión del marco teórico de bi-particiones a k-particiones}
+
+\subsubsection*{GeoMIP: de bipartición geométrica a KGeoMIP divisivo}
+
+GeoMIP resuelve la bipartición óptima ($k=2$) mediante un recorrido BFS sobre el
+\textbf{hipercubo de Hamming} de $D$ dimensiones (donde $D$ es la dimensión del subsistema),
+construyendo una tabla de costos de transición $\mathbf{T} \in \mathbb{R}^{2^D \times D}$ y
+evaluando la EMD-Effect solo para los candidatos más prometedores identificados por cercanía
+topológica.
+
+Para extender a $k \geq 3$, KGeoMIP adopta la \textbf{estrategia E4 (refinamiento divisivo
+top-down)}, que parte de la bipartición exacta de GeoMIP y la refina iterativamente:
+
+\begin{enumerate}
+  \item \textbf{Anclaje $k=2$}: se ejecuta GeoMIP completo para obtener la bipartición óptima
+        $\Pi_2^* = \{P_1, P_2\}$. Esto garantiza $\Phi^*(\Pi_2^*) = \Phi^*_{\text{GeoMIP}}$ por
+        construcción.
+  \item \textbf{Construcción de la matriz de similitud causal $S$}: $S_{ij}$ cuantifica
+        cuánto costo de transición acumula la variable $i$ sobre los estados donde la variable
+        $j$ difiere del estado inicial (Ecuación~\ref{eq:S_matrix}).
+  \item \textbf{Refinamiento iterativo}: para $t = 3, 4, \ldots, k$, se selecciona la parte
+        $P^*$ de la partición actual que minimiza el \textbf{incremento de pérdida} $\Delta\Phi$
+        al bipartirla, y se reemplaza $P^*$ por la bipartición de menor costo de $P^*$.
+\end{enumerate}
+
+\begin{equation}
+  S_{ij} = \frac{1}{2}\sum_{s=0}^{2^D-1} T_{s,i} \cdot \mathbf{1}\!\left[
+    \text{bit}_j(s) \neq \text{bit}_j(s_0)
+  \right]
+  + \text{(término simétrico)}
+  \label{eq:S_matrix}
+\end{equation}
+
+La función $S$ guía la selección de candidatos de corte dentro de cada parte, priorizando
+pares de variables con alta similitud causal (que deben quedarse juntas) frente a pares con
+baja similitud (que son buenos candidatos de separación).
+
+\subsubsection*{QNodes: de Queyranne submodular a KQNodes greedy}
+
+QNodes resuelve la bipartición óptima ($k=2$) mediante el \textbf{algoritmo de Queyranne}
+(Queyranne, 1998), que minimiza funciones submodulares simétricas en $\mathcal{O}(D^3)$
+evaluaciones del oracle. La función que QNodes minimiza:
+\begin{equation}
+  f(A) = \sum_{i=1}^{N} \min\bigl(
+    |\bar{\mu}_B(i) - v_i|,\;
+    |\bar{\mu}_A(i) - v_i|
+  \bigr)
+  \label{eq:f_oracle}
+\end{equation}
+es una aproximación submodular simétrica de la EMD-Effect, donde $\bar{\mu}_A(i)$ es la media
+de $T_{\cdot,i}$ sobre los estados en $A$, y $v_i = T_{s_0,i}$ es el valor pivote del nodo $i$.
+
+Para $k \geq 3$, KQNodes aplica un \textbf{refinamiento greedy con MinHeap}: en lugar de
+evaluar todas las k-particiones posibles ($S(n,k)$ candidatos), aplica Queyranne $k-1$ veces
+sobre bloques progresivamente más pequeños, guiado por el criterio C4 de mínimo $\varphi$
+local:
+
+\begin{equation}
+  P^* = \arg\min_{P_i \in \Pi,\; |P_i| \geq 2} \varphi_{\text{local}}(P_i)
+  \label{eq:criterio_c4}
+\end{equation}
+
+\subsubsection*{Justificación de la calidad de las heurísticas}
+
+\begin{itemize}
+  \item \textbf{Exactitud para $k=2$}: ambas estrategias producen resultados exactamente
+        equivalentes a sus anclas GeoMIP y QNodes para $k=2$, verificado con
+        $|\Delta\Phi| < 10^{-9}$ en 13 casos de prueba.
+
+  \item \textbf{Garantía de monotonicidad}: el refinamiento iterativo garantiza
+        $\Phi^*(\Pi_{k+1}) \geq \Phi^*(\Pi_k)$ por construcción, ya que cada paso añade
+        una restricción de independencia adicional.
+
+  \item \textbf{Optimalidad dentro de cada bloque}: dentro de cada parte $P_i$, Queyranne
+        garantiza la bipartición óptima bajo la función proxy $f$, que es empíricamente
+        $\sim$97--100\% exacta respecto a la EMD-Effect real (Kitazono et al., \textit{Entropy}
+        2018).
+
+  \item \textbf{Gap empírico reducido}: los experimentos A/B del proyecto muestran que el
+        criterio C4 de KQNodes produce un gap promedio inferior al 5\% respecto al óptimo
+        exhaustivo para $n \leq 8$. KGeoMIP-E4 muestra comportamiento análogo.
+
+  \item \textbf{Suboptimalidad global para $k \geq 3$}: ninguna de las dos estrategias garantiza
+        el óptimo global. La función $f$ no es submodular para k-particiones en general, y el
+        refinamiento divisivo puede quedar atrapado en mínimos locales no globales.
+\end{itemize}
+
+\subsection{Análisis de complejidad del espacio de soluciones}
+
+\subsubsection*{Crecimiento del espacio de k-particiones}
+
+El número de k-particiones de $n$ elementos crece superexponencialmente con $n$ y $k$.
+La Tabla~\ref{tab:espacios} muestra la magnitud del espacio de búsqueda para los tamaños
+de red utilizados en el proyecto:
+
+\begin{table}[H]
+  \centering
+  \caption{Tamaño del espacio de soluciones $S(n,k)$ para distintas configuraciones.
+           Los valores $\gg 10^6$ hacen inviable la búsqueda exhaustiva.}
+  \label{tab:espacios}
+  \begin{tabular}{crrrr}
+    \toprule
+    $n$ & $k=2$ & $k=3$ & $k=4$ & $k=5$ \\
+    \midrule
+    5  & 15           & 25              & 10                & 1               \\
+    8  & 127          & 966             & 2\,646            & 3\,025          \\
+    10 & 511          & 9\,330          & 145\,750          & 1\,082\,250     \\
+    15 & 16\,383      & $\sim$2.4\,M    & \cellcolor{gray!20}$\gg 10^9$  & \cellcolor{gray!20}$\gg 10^{11}$ \\
+    20 & $\sim$524\,K & \cellcolor{gray!20}$\sim$580\,M & \cellcolor{gray!20}---          & \cellcolor{gray!20}---          \\
+    25 & $\sim$16\,M  & \cellcolor{gray!20}---          & \cellcolor{gray!20}---          & \cellcolor{gray!20}---          \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsubsection*{Comparación con la bipartición}
+
+Para la bipartición ($k=2$), el espacio de soluciones es $S(n,2) = 2^{n-1} - 1$, que crece
+\textbf{exponencialmente} con $n$. QNodes y GeoMIP reducen esto a complejidades polinomiales:
+$\mathcal{O}(D^3)$ y $\mathcal{O}(D \cdot 2^D)$ respectivamente.
+
+Para k-particiones ($k \geq 3$), el espacio crece \textbf{superexponencialmente}. La relación
+asintótica de los números de Stirling para $k$ fijo es:
+\begin{equation}
+  S(n, k) \sim \frac{k^n}{k!} \quad \text{cuando } n \to \infty
+  \label{eq:stirling_asintotico}
+\end{equation}
+lo que significa que el cociente $S(n,k) / S(n,2)$ crece como $k^{n-1}/k!$, haciéndose
+impracticable mucho más rápido que el caso bipartición.
+
+\subsubsection*{Reducción lograda por las heurísticas}
+
+KGeoMIP y KQNodes transforman el problema $\mathcal{O}(S(n,k))$ en problemas polinomiales:
+
+\begin{table}[H]
+  \centering
+  \caption{Reducción de complejidad respecto a la búsqueda exhaustiva.}
+  \label{tab:reduccion_complejidad}
+  \begin{tabular}{lll}
+    \toprule
+    Algoritmo & Complejidad & Factor de reducción vs. exhaustiva \\
+    \midrule
+    Búsqueda exhaustiva       & $\mathcal{O}(S(n,k) \cdot N)$    & $1\times$ (baseline) \\
+    KQNodes (C4)              & $\mathcal{O}(k \cdot D^3 \cdot N)$ & $S(n,k) / (k \cdot D^3)$ \\
+    KGeoMIP (E4)              & $\mathcal{O}(k \cdot D^2 \cdot 2^D)$ & $S(n,k) \cdot N / (k \cdot D^2 \cdot 2^D)$ \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Para $n=10$, $k=4$, $D=10$ y $N=10$: la búsqueda exhaustiva requiere $\sim$1.5 millones de
+evaluaciones EMD, mientras KQNodes requiere $\leq 4 \cdot 10^3 \cdot 10 = 40\,000$ operaciones
+elementales — una reducción de más de 30 veces. Para $n=20$, $k=3$, la reducción supera los
+8 órdenes de magnitud.

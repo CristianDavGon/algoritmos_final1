@@ -16,7 +16,7 @@ from src.main_kqnodes import iniciar_kqnodes
 
 # ── Configuración ─────────────────────────────────────────────────────────────
 ESTADO:   str = "1" + "0" * 19
-K:        int = 5
+K:        int = 4
 CRITERIO: str = "C4"   # "C4" = corte marginal mínimo, "C1" = tamaño máximo
 MUESTRA:  str = "A"
 # ─────────────────────────────────────────────────────────────────────────────

@@ -1,0 +1,56 @@
+% ============================================================
+% §2.10 · Uso de Inteligencia Artificial Generativa
+% ============================================================
+
+\section{Uso de Inteligencia Artificial Generativa}
+
+Durante el desarrollo del proyecto K-QGMIP se utilizó
+\textbf{Claude} (Anthropic) mediante la interfaz \textbf{Claude Code},
+a lo largo de las cuatro fases del proyecto (18 mayo -- 15 junio 2026).
+
+El registro completo de todas las interacciones --- prompts, decisiones
+técnicas, archivos modificados y resultados de pruebas --- está
+disponible en la siguiente carpeta de Google Drive:
+
+\begin{center}
+  \href{https://drive.google.com/drive/u/1/folders/1_O1T8vP5PjtyhC1141kj9PLuoT6PGLo8}%
+  {\texttt{traceability\_data/} \textemdash{} Registro completo de sesiones IA}
+\end{center}
+
+La carpeta contiene 22 archivos Markdown, uno por sesión, que documentan:
+
+\begin{itemize}
+  \item \textbf{Etapa y fecha} de cada sesión de trabajo.
+  \item \textbf{Prompt exacto} escrito por el estudiante.
+  \item \textbf{Acciones ejecutadas} por Claude (archivos creados o modificados).
+  \item \textbf{Resultados} de tests y benchmarks obtenidos en esa sesión.
+\end{itemize}
+
+\subsection*{Áreas de asistencia}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{ll}
+  \toprule
+  \textbf{Área} & \textbf{Uso de IA} \\
+  \midrule
+  Comprensión del código base & Mapeo de contratos e interfaces heredadas \\
+  Validación y corrección & Diseño de suite de tests, detección de bugs \\
+  Implementación KQNodes & Clase \texttt{KQNodes}, criterio C4, tests \\
+  Implementación KGeoMIP & Clase \texttt{KGeoMIP}, estrategia E4, optimizaciones \\
+  Documentación & Manual Técnico y Manual de Usuario \\
+  \bottomrule
+\end{tabular}
+\caption{Áreas del proyecto con asistencia de IA.}
+\label{tab:areas_ia}
+\end{table}
+
+\subsection*{Reflexión}
+
+La IA actuó como acelerador técnico, pero cada decisión fue revisada
+y aprobada por el equipo.
+Los errores detectados por Claude (bugs DT-10, DT-11, $\Delta\Phi$
+incorrecto) requirieron comprensión matemática del estudiante para ser
+validados.
+La limitación principal fue la pérdida de contexto entre sesiones,
+mitigada mediante la carpeta de trazabilidad referenciada arriba.

@@ -1,0 +1,285 @@
+% ============================================================
+% §7 · Interpretación de resultados — Manual de Usuario K-QGMIP
+% ============================================================
+
+\section{Interpretación de resultados}
+
+Una vez ejecutado el \textit{framework}, los resultados se presentan en dos formatos
+complementarios: un archivo CSV con una fila por caso analizado y un archivo Markdown
+con tabla de resumen y detalle por caso. Esta sección explica cómo leer e interpretar
+cada campo de la solución, qué significa la partición obtenida y qué cuantifica el valor
+de pérdida $\varphi$.
+
+% ============================================================
+\subsection{KQNodes — Estrategia submodular}
+\label{sec:interpretacion_kqnodes}
+% ============================================================
+
+% ------------------------------------------------------------
+\subsubsection{Estructura de la solución}
+% ------------------------------------------------------------
+
+Cada caso analizado produce un objeto \texttt{Solution} con los siguientes campos,
+que se reflejan directamente en las columnas del CSV y del Markdown de resultados:
+
+\begin{table}[h!]
+\centering
+\begin{tabular}{|l|l|p{7.5cm}|}
+\hline
+\textbf{Campo} & \textbf{Tipo} & \textbf{Descripción} \\
+\hline
+\texttt{Prueba}        & Entero   & Número de fila del Excel de pruebas (1-indexado). \\
+\texttt{Alcance}       & Letras   & Nodos del subsistema en $t+1$ (p.\,ej.\ \texttt{ABCDE}). \\
+\texttt{Mecanismo}     & Letras   & Nodos del subsistema en $t$ (p.\,ej.\ \texttt{ACE}). \\
+\texttt{k}             & Entero   & Número de partes solicitado. \\
+\texttt{Criterio}      & Cadena   & Heurística usada (\texttt{C4} o \texttt{C1}). \\
+\texttt{Partición}     & Texto    & Agrupación óptima de nodos en $k$ partes. \\
+\texttt{Pérdida ($\varphi$)} & Real & Información integrada perdida al aplicar la partición. \\
+\texttt{Tiempo (s)}    & Real     & Tiempo de cómputo en segundos para ese caso. \\
+\hline
+\end{tabular}
+\caption{Columnas del CSV y Markdown de resultados de KQNodes.}
+\label{tab:campos_solucion_kqnodes}
+\end{table}
+
+Adicionalmente, el objeto interno \texttt{Solution} contiene dos distribuciones de
+probabilidad que no se exportan al CSV pero están disponibles para análisis programático:
+
+\begin{itemize}
+  \item \texttt{distribucion\_subsistema}: vector de probabilidades marginales del
+        subsistema original (sin partir), de forma $(N,)$.
+  \item \texttt{distribucion\_particion}: vector de probabilidades del subsistema
+        tratando las $k$ partes como independientes.
+\end{itemize}
+
+% ------------------------------------------------------------
+\subsubsection{La partición óptima}
+% ------------------------------------------------------------
+
+La \textbf{partición} representa la división del subsistema en $k$ grupos de nodos
+que produce la menor pérdida de información causal. Su formato en el archivo de
+resultados es:
+
+\begin{lstlisting}
+(Nodos_parte_1, dims_parte_1) | (Nodos_parte_2, dims_parte_2) | ...
+\end{lstlisting}
+
+Cada grupo \texttt{(X,\,Y)} indica los nodos involucrados; el símbolo $\emptyset$
+aparece cuando la parte no tiene dimensiones de mecanismo asociadas (partición solo
+en el alcance, tiempo $t+1$).
+
+\paragraph{Ejemplo — Red de 8 nodos, $k=5$, criterio C4.}
+
+El caso \#1 (alcance y mecanismo completos: ABCDEFGH) produce:
+
+\begin{lstlisting}
+Particion: (A,0) | (B,0) | (C,0) | (D,0) | (E,F,G,H,0)
+Perdida (phi): 4.000000
+Tiempo: 0.0082 s
+\end{lstlisting}
+
+Interpretación: KQNodes divide el subsistema en 5 partes. Las primeras cuatro partes
+son singletons (A, B, C, D aislados), mientras que la quinta agrupa los nodos E, F, G
+y H. Esta es la forma de cortar el sistema que minimiza el incremento de $\varphi$
+respecto a la distribución original.
+
+El caso \#41 (alcance ACE, mecanismo ACE) produce:
+
+\begin{lstlisting}
+Particion: (A,0) | (C,0) | (E,0)
+Perdida (phi): 0.000000
+Tiempo: 0.0016 s
+\end{lstlisting}
+
+Interpretación: $\varphi = 0$ indica \textbf{partición natural}: el subsistema
+\{A, C, E\} ya era causalmente independiente; cortarlo no produce pérdida alguna
+de información integrada. El subsistema no tiene información causal irreducible.
+
+% ------------------------------------------------------------
+\subsubsection{El valor de pérdida $\varphi$}
+% ------------------------------------------------------------
+
+El valor $\varphi$ (pérdida) cuantifica la \textbf{diferencia entre la distribución
+del subsistema original y la distribución reconstruida asumiendo que las $k$ partes
+son causalmente independientes}. Formalmente:
+
+\begin{equation}
+  \varphi^* = \mathrm{EMD}\!\left(
+    p\!\left(s_{t+1}\right),\;
+    \bigotimes_{i=1}^{k}\, p_i\!\left(s_{t+1}^{(i)}\right)
+  \right)
+\end{equation}
+
+donde $\mathrm{EMD}$ es la \textit{Earth Mover's Distance} (en la variante efecto
+del proyecto: suma de diferencias absolutas de distribuciones marginales) y $\otimes$
+denota el producto de distribuciones independientes de las $k$ partes.
+
+\begin{table}[h!]
+\centering
+\begin{tabular}{|c|p{9cm}|}
+\hline
+\textbf{Valor de $\varphi$} & \textbf{Significado} \\
+\hline
+$\varphi = 0$ & Partición natural: las partes ya son causalmente independientes.
+                El sistema es completamente reducible para ese subsistema. \\
+$\varphi > 0$ & El sistema tiene información causal irreducible: las partes
+                interactúan causalmente y no pueden tratarse como independientes
+                sin pérdida de información. A mayor $\varphi$, mayor integración
+                causal. \\
+\hline
+\end{tabular}
+\caption{Interpretación del valor de pérdida $\varphi$ en KQNodes.}
+\label{tab:interpretacion_phi}
+\end{table}
+
+\paragraph{Propiedades importantes del valor $\varphi$:}
+
+\begin{itemize}
+  \item \textbf{Monotonicidad}: $\varphi(k+1) \geq \varphi(k)$. Aumentar el número
+        de partes solo puede mantener o aumentar la pérdida; nunca la reduce.
+  \item \textbf{Cota inferior}: $\varphi \geq 0$ siempre (la EMD es no negativa).
+  \item \textbf{Heurística}: para $k \geq 3$, KQNodes garantiza encontrar una
+        $k$-partición de bajo $\varphi$ (corte marginal mínimo), pero no
+        necesariamente el mínimo global.
+\end{itemize}
+
+\paragraph{Resumen estadístico del experimento N8A, $k=5$:}
+
+\begin{table}[h!]
+\centering
+\begin{tabular}{|l|r|}
+\hline
+\textbf{Métrica} & \textbf{Valor} \\
+\hline
+Total de pruebas     & 49 \\
+$\varphi$ promedio   & 1{,}80 \\
+$\varphi$ máxima     & 4{,}00 \\
+$\varphi$ mínima     & 0{,}00 \\
+Tiempo promedio      & 0{,}0038\,s \\
+Tiempo total         & 0{,}1869\,s \\
+\hline
+\end{tabular}
+\caption{Resumen de resultados de KQNodes para la red N8A con $k=5$, criterio C4.}
+\label{tab:resumen_n8a_k5}
+\end{table}
+
+% ------------------------------------------------------------
+\subsubsection{Uso de los resultados}
+% ------------------------------------------------------------
+
+Los archivos de salida generados por KQNodes se pueden utilizar de las
+siguientes formas:
+
+\begin{itemize}
+  \item \textbf{Análisis estadístico}: el CSV puede importarse directamente en
+        herramientas como pandas (Python), R o Excel para calcular distribuciones
+        de $\varphi$, tiempos por tamaño de subsistema o comparar criterios C4 y C1.
+
+\begin{lstlisting}[language=Python]
+import pandas as pd
+
+df = pd.read_csv("results/kqnodes/resultado__N8_A_5.csv")
+print(df["Perdida (phi)"].describe())
+print(df[df["Perdida (phi)"] == 0])   # casos con particion natural
+\end{lstlisting}
+
+  \item \textbf{Comparación entre valores de $k$}: ejecutar KQNodes para
+        $k \in \{2, 3, 4, 5\}$ sobre la misma red y comparar cómo evoluciona
+        $\varphi(k)$, aprovechando la propiedad de monotonicidad para validar
+        coherencia de los resultados.
+
+  \item \textbf{Identificación de subsistemas irreducibles}: filtrar casos con
+        $\varphi = 0$ para detectar subsistemas que el sistema puede tratar como
+        partes independientes, lo que tiene interpretación directa en IIT~4.0
+        como ausencia de información causal integrada.
+
+  \item \textbf{Exportación al manual técnico}: las tablas del Markdown generado
+        (\texttt{.md}) están formateadas para incrustar directamente en informes
+        o documentos de análisis.
+\end{itemize}
+
+% ============================================================
+\subsection{KGeoMIP — Estrategia geométrica}
+\label{sec:interpretacion_kgeomip}
+% ============================================================
+
+% ------------------------------------------------------------
+\subsubsection{Estructura de la solución}
+% ------------------------------------------------------------
+
+La estructura de resultados de KGeoMIP es idéntica a la de KQNodes; las columnas del
+CSV y del Markdown de salida son las mismas:
+
+\begin{table}[H]
+\centering
+\begin{tabular}{|l|l|p{7.5cm}|}
+\hline
+\textbf{Campo} & \textbf{Tipo} & \textbf{Descripción} \\
+\hline
+\texttt{Prueba}        & Entero & Número de fila del Excel de pruebas (1-indexado). \\
+\texttt{Alcance}       & Letras & Nodos del subsistema en $t+1$ (p.\,ej.\ \texttt{ABCDE}). \\
+\texttt{Mecanismo}     & Letras & Nodos del subsistema en $t$ (p.\,ej.\ \texttt{ACE}). \\
+\texttt{k}             & Entero & Número de partes solicitado. \\
+\texttt{Criterio}      & Cadena & Variante usada (\texttt{E4} o \texttt{A}). \\
+\texttt{Partición}     & Texto  & Agrupación óptima de nodos en $k$ partes. \\
+\texttt{Pérdida ($\varphi$)} & Real & Información integrada perdida al aplicar la partición. \\
+\texttt{Tiempo (s)}    & Real   & Tiempo de cómputo en segundos para ese caso. \\
+\hline
+\end{tabular}
+\caption{Columnas del CSV y Markdown de resultados de KGeoMIP.}
+\label{tab:campos_solucion_kgeomip}
+\end{table}
+
+% ------------------------------------------------------------
+\subsubsection{La partición óptima y el valor $\varphi$}
+% ------------------------------------------------------------
+
+La partición reportada por KGeoMIP se construye mediante refinamiento divisivo
+(\textbf{variante E4}): se parte de la bipartición óptima de GeoMIP ($k=2$) y se
+divide iterativamente la parte cuyo corte produce el menor incremento $\Delta\Phi$,
+hasta alcanzar $k$ partes. El resultado se escribe con el mismo formato que KQNodes:
+
+\begin{lstlisting}
+Particion: (A,B,C | D,E,F | G,H | I | J)
+Perdida (phi): 2.75
+Tiempo: 0.043 s
+\end{lstlisting}
+
+El valor $\varphi$ tiene la misma interpretación que en KQNodes (ver
+Sección~\ref{sec:interpretacion_kqnodes}): mide la distancia EMD entre la distribución
+original del subsistema y la distribución reconstruida asumiendo independencia causal
+entre las $k$ partes.
+
+Una propiedad específica de la variante E4 es la \textbf{garantía de regresión}:
+para $k=2$, KGeoMIP reproduce exactamente el resultado de GeoMIP. Para $k \geq 3$,
+la secuencia de pérdidas es monótona no decreciente ($\varphi(k) \geq \varphi(k-1)$).
+
+% ------------------------------------------------------------
+\subsubsection{Diferencias respecto a KQNodes}
+% ------------------------------------------------------------
+
+Aunque los formatos de salida y la interpretación de $\varphi$ son equivalentes,
+los dos métodos difieren en la estrategia de búsqueda:
+
+\begin{table}[H]
+\centering
+\begin{tabular}{|l|p{5cm}|p{5cm}|}
+\hline
+\textbf{Aspecto} & \textbf{KQNodes} & \textbf{KGeoMIP} \\
+\hline
+Fundamento       & Función submodular de Queyranne & Tabla de costos geométrica sobre hipercubo $n$-dimensional \\
+Estrategia       & Ordenamiento de máxima adyacencia + refinamiento iterativo & Refinamiento divisivo top-down con MinHeap y $\Delta\Phi$ \\
+Garantía $k=2$  & Óptimo exacto (Queyranne) & Igual al óptimo de GeoMIP \\
+Regresión $k>2$ & Heurística sin garantía de mínimo global & Monotonicidad garantizada (E4) \\
+Complejidad      & $\mathcal{O}(n^3)$ por bipartición & $\mathcal{O}(n^2)$ por refinamiento (tabla precalculada) \\
+\hline
+\end{tabular}
+\caption{Comparación entre KQNodes y KGeoMIP como herramientas de análisis.}
+\label{tab:comparacion_metodos}
+\end{table}
+
+Para un mismo subsistema, los valores de $\varphi$ de ambos métodos \textbf{no tienen
+por qué ser iguales}: cada método encuentra una $k$-partición de bajo costo según su
+propia heurística, y la pérdida asociada puede diferir. La comparación sistemática
+entre métodos para los mismos casos de prueba es precisamente uno de los objetivos del
+experimento final del proyecto.

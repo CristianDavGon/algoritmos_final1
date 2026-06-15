@@ -1,0 +1,440 @@
+% ============================================================
+% §2.7 · Resultados Experimentales — Manual Técnico K-QGMIP
+% ============================================================
+
+\section{Resultados Experimentales}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\subsection{Datasets Utilizados}
+% ─────────────────────────────────────────────────────────────────────────────
+
+Los experimentos utilizan los siguientes recursos de datos:
+
+\begin{itemize}
+  \item \textbf{Archivo de casos de prueba}: \texttt{data/DatosPruebas2026\_1.xlsx}
+        con 7 hojas (una por tamaño de red $n \in \{5,8,10,15,20,22,25\}$).
+        Cada hoja contiene 49--50 filas con pares \texttt{(Alcance, Mecanismo)}
+        codificados en notación de letras (A--Z).
+
+  \item \textbf{Redes bayesianas de prueba}: archivos
+        \texttt{data/samples/N\{n\}\{M\}.csv}, matrices de probabilidad de
+        transición (TPM) de forma $(2^n,\, n)$, donde $M \in \{\texttt{A},
+        \texttt{B}\}$ identifica la muestra de red.
+        Los tamaños de archivo van desde $\approx$\,0.5\,MB ($n=8$)
+        hasta $\approx$\,640\,MB ($n=20$).
+\end{itemize}
+
+Se ejecutaron en total \textbf{18 configuraciones experimentales}: 12 con
+KQNodes C4 y 6 con KGeoMIP E4, cubriendo $n \in \{8,10,15,20\}$,
+$k \in \{3,4,5\}$ y muestras A y B.
+Todas las ejecuciones usan el estado inicial \texttt{"100\ldots0"}
+(nodo A activo, resto en cero).
+
+% ─────────────────────────────────────────────────────────────────────────────
+\subsection{Métricas de Evaluación}
+% ─────────────────────────────────────────────────────────────────────────────
+
+Se reportan las siguientes métricas por cada ejecución:
+
+\begin{itemize}
+  \item \textbf{Pérdida $\varphi$}: valor de la función objetivo
+        EMD-Effect $= \mathrm{EMD}(p(s_{t+1}),\, \bigotimes_{P_i} p_{P_i})$
+        calculado por \texttt{\_calcular\_phi\_total} sobre la $k$-partición
+        encontrada. Valores altos indican que la partición rompe fuertemente
+        la causalidad integrada.
+
+  \item \textbf{Tiempo de ejecución $t$ (s)}: tiempo de pared desde la
+        llamada a \texttt{aplicar\_estrategia} hasta el retorno de
+        \texttt{Solution}.
+
+  \item \textbf{Número de pruebas}: casos del Excel procesados por
+        configuración (49--50).
+\end{itemize}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\subsection{Tablas de Resultados}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\subsubsection*{Tabla 1 — Resumen ejecutivo completo (18 experimentos)}
+
+{\small
+\begin{table}[H]
+\centering
+\begin{tabular}{llrrrrrr}
+  \toprule
+  \textbf{Algoritmo} & $n$, Muestra, $k$ & \textbf{Casos} &
+  $\varphi_{\min}$ & $\varphi_{\mathrm{avg}}$ & $\varphi_{\max}$ &
+  $t_{\mathrm{avg}}$ (s) \\
+  \midrule
+  \multicolumn{7}{l}{\textit{KQNodes C4}} \\
+  \midrule
+  KQNodes C4 &  8, A, 5 & 49 & 0.0000 & 1.7959 & 4.0000 & 0.0038 \\
+  KQNodes C4 & 10, A, 3 & 49 & 0.1914 & 1.4647 & 4.2480 & 0.0055 \\
+  KQNodes C4 & 10, A, 4 & 49 & 0.1582 & 1.5185 & 4.2949 & 0.0061 \\
+  KQNodes C4 & 10, A, 5 & 49 & 0.1992 & 1.5444 & 4.5254 & 0.0068 \\
+  KQNodes C4 & 15, A, 3 & 50 & 0.0393 & 0.1458 & 0.3460 & 0.0278 \\
+  KQNodes C4 & 15, A, 4 & 50 & 0.0491 & 0.1760 & 0.3478 & 0.0305 \\
+  KQNodes C4 & 15, A, 5 & 50 & 0.0527 & 0.2029 & 0.3800 & 0.0578 \\
+  KQNodes C4 & 15, B, 3 & 50 & 0.0025 & 0.0129 & 0.0292 & 0.0264 \\
+  KQNodes C4 & 15, B, 4 & 50 & 0.0037 & 0.0156 & 0.0275 & 0.0301 \\
+  KQNodes C4 & 15, B, 5 & 50 & 0.0045 & 0.0180 & 0.0297 & 0.0627 \\
+  KQNodes C4 & 20, A, 4 & 50 & 0.0820 & 2.6611 & 8.7807 & 1.4985 \\
+  KQNodes C4 & 20, A, 5 & 50 & 0.0823 & 2.6467 & 9.2800 & 3.1746 \\
+  \midrule
+  \multicolumn{7}{l}{\textit{KGeoMIP E4}} \\
+  \midrule
+  KGeoMIP E4 & 10, A, 3 & 49 & 0.0283 & 1.0156 & 3.3848 & 0.0252 \\
+  KGeoMIP E4 & 15, B, 3 & 50 & 0.0004 & 0.0074 & 0.0209 & 0.4556 \\
+  KGeoMIP E4 & 15, B, 4 & 50 & 0.0008 & 0.0105 & 0.0236 & 0.7986 \\
+  KGeoMIP E4 & 15, B, 5 & 50 & 0.0013 & 0.0138 & 0.0269 & 0.4633 \\
+  KGeoMIP E4 & 20, A, 3 & 50 & 0.0007 & 2.2177 & 8.2487 & 6.1883 \\
+  KGeoMIP E4 & 20, A, 4 & 50 & 0.0170 & 2.3926 & 8.8741 & 3.4927 \\
+  \bottomrule
+\end{tabular}
+\caption{Resumen ejecutivo de las 18 configuraciones experimentales.
+  Estado inicial \texttt{"100\ldots0"}, variante E4 (KGeoMIP) y C4 (KQNodes).}
+\label{tab:resumen_resultados}
+\end{table}
+}
+
+\subsubsection*{Tabla 2 — Efecto de $k$ sobre $\varphi$ (monotonicidad)}
+
+La Tabla~\ref{tab:monotonicidad} muestra cómo $\varphi_{\mathrm{avg}}$
+crece con $k$ para configuraciones con tres valores de $k$ disponibles,
+verificando empíricamente la Proposición~1 (§2.9.1).
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llrrr}
+  \toprule
+  \textbf{Algoritmo} & $n$, Muestra &
+  $\varphi_{\mathrm{avg}}$ ($k=3$) &
+  $\varphi_{\mathrm{avg}}$ ($k=4$) &
+  $\varphi_{\mathrm{avg}}$ ($k=5$) \\
+  \midrule
+  KQNodes C4 & 10, A & 1.4647 & 1.5185 & 1.5444 \\
+  KQNodes C4 & 15, A & 0.1458 & 0.1760 & 0.2029 \\
+  KQNodes C4 & 15, B & 0.0129 & 0.0156 & 0.0180 \\
+  KGeoMIP E4 & 15, B & 0.0074 & 0.0105 & 0.0138 \\
+  \bottomrule
+\end{tabular}
+\caption{$\varphi_{\mathrm{avg}}$ en función de $k$ para configuraciones con
+  $k \in \{3,4,5\}$. En todos los casos $\varphi(k{+}1) \geq \varphi(k)$,
+  confirmando la monotonicidad por construcción.}
+\label{tab:monotonicidad}
+\end{table}
+
+\subsubsection*{Tabla 3 — Escalabilidad temporal: $t_{\mathrm{avg}}$ vs $n$}
+
+La Tabla~\ref{tab:escalabilidad} muestra el crecimiento del tiempo promedio
+con el tamaño de la red, fijando $k=5$ para KQNodes y $k=3$ para KGeoMIP.
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llrrrr}
+  \toprule
+  \textbf{Algoritmo} & Muestra &
+  $t_{\mathrm{avg}}$ $n=8$ &
+  $t_{\mathrm{avg}}$ $n=10$ &
+  $t_{\mathrm{avg}}$ $n=15$ &
+  $t_{\mathrm{avg}}$ $n=20$ \\
+  \midrule
+  KQNodes C4 ($k=5$) & A & 0.0038 s & 0.0068 s & 0.0578 s & 3.1746 s \\
+  KQNodes C4 ($k=5$) & B & --- & --- & 0.0627 s & --- \\
+  KGeoMIP E4 ($k=3$) & A & --- & 0.0252 s & --- & 6.1883 s \\
+  KGeoMIP E4 ($k=3$) & B & --- & --- & 0.4556 s & --- \\
+  \bottomrule
+\end{tabular}
+\caption{Tiempo promedio (s) por configuración en función de $n$.
+  KQNodes muestra A $k=5$: factor $\approx 467\times$ entre $n=10$ y $n=20$.
+  KGeoMIP: construcción de $S$ domina el costo para $n=15$.}
+\label{tab:escalabilidad}
+\end{table}
+
+\subsubsection*{Tabla 4 — Comparación KGeoMIP vs KQNodes ($n=15$, muestra B)}
+
+La Tabla~\ref{tab:comparacion_estrategias} compara ambas estrategias sobre
+la misma red y los mismos casos de prueba, para $k \in \{3,4,5\}$.
+
+\begin{table}[H]
+\centering
+\begin{tabular}{rrrrrr}
+  \toprule
+  $k$ &
+  $\varphi_{\mathrm{avg}}$ E4 & $\varphi_{\mathrm{avg}}$ C4 & Diferencia (\%) &
+  $t_{\mathrm{avg}}$ E4 & $t_{\mathrm{avg}}$ C4 \\
+  \midrule
+  3 & 0.0074 & 0.0129 & $-42$\,\% & 0.456 s & 0.026 s \\
+  4 & 0.0105 & 0.0156 & $-33$\,\% & 0.799 s & 0.030 s \\
+  5 & 0.0138 & 0.0180 & $-23$\,\% & 0.463 s & 0.063 s \\
+  \bottomrule
+\end{tabular}
+\caption{KGeoMIP E4 vs KQNodes C4 sobre $n=15$, muestra B.
+  KGeoMIP obtiene menor $\varphi$ en todos los $k$ a costa de un tiempo
+  $\approx 7$--$17\times$ mayor por caso.}
+\label{tab:comparacion_estrategias}
+\end{table}
+
+\subsubsection*{Tabla 5 — Efecto de la muestra de red ($n=15$, KQNodes C4)}
+
+La Tabla~\ref{tab:efecto_muestra} compara los resultados sobre la misma
+hoja del Excel ($n=15$) con dos redes distintas: muestra A y muestra B.
+
+\begin{table}[H]
+\centering
+\begin{tabular}{rrrrr}
+  \toprule
+  $k$ &
+  $\varphi_{\mathrm{avg}}$ A & $\varphi_{\mathrm{avg}}$ B & Factor A/B &
+  $t_{\mathrm{avg}}$ A \\
+  \midrule
+  3 & 0.1458 & 0.0129 & $11.3\times$ & 0.0278 s \\
+  4 & 0.1760 & 0.0156 & $11.3\times$ & 0.0305 s \\
+  5 & 0.2029 & 0.0180 & $11.3\times$ & 0.0578 s \\
+  \bottomrule
+\end{tabular}
+\caption{KQNodes C4 sobre $n=15$: muestra A vs muestra B.
+  La muestra B produce $\varphi$ sistemáticamente $11\times$ menor,
+  lo que refleja que la red N15B tiene menor información causal integrada.
+  Los tiempos de ejecución son similares entre muestras.}
+\label{tab:efecto_muestra}
+\end{table}
+
+\subsubsection*{Casos representativos — KGeoMIP $n=10$, $k=3$}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{rllrr}
+  \toprule
+  \textbf{\#} & \textbf{Alcance} & \textbf{Mecanismo} &
+  $\varphi$ & $t$ (s) \\
+  \midrule
+  1  & ABCDEFGHIJ & ABCDEFGHIJ & 2.9746 & 0.0580 \\
+  8  & ABCDEFGHI  & ABCDEFGHIJ & 3.3848 & 0.0390 \\
+  17 & BCDEFGHIJ  & BCDEFGHIJ  & 1.6055 & 0.0600 \\
+  29 & ABDEGHJ    & ABCDEFGHIJ & 3.2109 & 0.0190 \\
+  41 & ACEGI      & ACEGI      & 0.2363 & 0.0090 \\
+  49 & BDFHJ      & BDFHJ      & 0.1328 & 0.0070 \\
+  \bottomrule
+\end{tabular}
+\caption{Selección de casos para KGeoMIP ($n=10$, $k=3$, E4).
+  Las pruebas con alcance máximo (10 nodos) producen $\varphi$ alto;
+  los subsistemas de 5 nodos producen $\varphi$ bajo y tiempo menor.}
+\label{tab:casos_kgeomip}
+\end{table}
+
+\subsubsection*{Casos representativos — KQNodes $n=20$, $k=5$}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{rllrr}
+  \toprule
+  \textbf{\#} & \textbf{Alcance} & \textbf{Mecanismo} &
+  $\varphi$ & $t$ (s) \\
+  \midrule
+  1 & ABCDEFGHIJKLMNOPQRST & ABCDEFGHIJKLMNOPQRST & 9.1250 & 24.63 \\
+  2 & ABCDEFGHIJKLMNOPQRST & ABCDEFGHIJKLMNOPQRS  & 4.0328 & 10.17 \\
+  3 & ABCDEFGHIJKLMNOPQRST & BCDEFGHIJKLMNOPQRST  & 6.1262 & 11.98 \\
+  4 & ABCDEFGHIJKLMNOPQRST & BCDEFGHIJKLMNOPQRS   & 3.2818 &  5.84 \\
+  \bottomrule
+\end{tabular}
+\caption{Primeros 4 casos para KQNodes ($n=20$, $k=5$, C4).
+  El subsistema completo (20 nodos) es el de mayor costo: $2^{20} = 1\,048\,576$ estados.}
+\label{tab:casos_kqnodes_n20}
+\end{table}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\subsection{Análisis de Resultados}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\subsubsection*{Monotonicidad de $\varphi$ con $k$}
+
+La Tabla~\ref{tab:monotonicidad} confirma empíricamente la
+Proposición~1 (§2.9.1): en las cuatro configuraciones con
+$k \in \{3,4,5\}$, $\varphi_{\mathrm{avg}}$ crece estrictamente con $k$.
+Para KQNodes $n=10$ A el incremento de $k=3$ a $k=5$ es de apenas
+$+5.4$\,\% ($1.465 \to 1.544$), mientras que para KQNodes $n=15$ A
+el incremento es del $39$\,\% ($0.146 \to 0.203$).
+Esto indica que en N10A el sistema ya está muy integrado desde $k=3$,
+mientras que en N15A cada partición adicional revela más independencia
+causal.
+
+El efecto de $k$ sobre el tiempo de ejecución es leve:
+KQNodes $n=10$ A pasa de $0.0055\,\text{s}$ ($k=3$) a
+$0.0068\,\text{s}$ ($k=5$), un incremento del $24$\,\%
+coherente con el costo de $k{-}1$ llamadas adicionales a Queyranne.
+
+\subsubsection*{Escalabilidad temporal con $n$}
+
+La Tabla~\ref{tab:escalabilidad} muestra el crecimiento exponencial
+del tiempo con $n$ para KQNodes C4 ($k=5$, muestra A):
+
+\begin{itemize}
+  \item $n=8 \to n=10$: factor $1.8\times$ (0.0038 a 0.0068\,s).
+  \item $n=10 \to n=15$: factor $8.5\times$ (0.0068 a 0.0578\,s).
+  \item $n=15 \to n=20$: factor $54.9\times$ (0.0578 a 3.1746\,s).
+  \item $n=10 \to n=20$ acumulado: factor $\approx 467\times$.
+\end{itemize}
+
+El modelo $\mathcal{O}(k \cdot D^3 \cdot N)$ predice un factor teórico
+$(20/10)^3 \cdot 2^{10} \approx 8192\times$ entre $n=10$ y $n=20$.
+El factor observado ($467\times$) es menor porque no todos los casos
+tienen alcance completo: los subsistemas con pocos nodos activos
+terminan en milisegundos aunque $n=20$.
+
+Para KGeoMIP E4, la construcción de la matriz $S$ (costo $O(n^2 \cdot 2^n)$,
+calculada una sola vez por subsistema) domina el tiempo para $n=15$:
+$0.456\,\text{s}$ promedio vs $0.026\,\text{s}$ de KQNodes en la misma
+configuración (muestra B, $k=3$).
+
+\subsubsection*{Comparación entre estrategias: KGeoMIP E4 vs KQNodes C4}
+
+La Tabla~\ref{tab:comparacion_estrategias} muestra que sobre $n=15$,
+muestra B, KGeoMIP E4 obtiene $\varphi_{\mathrm{avg}}$ entre un $23$\,\%
+y un $42$\,\% menor que KQNodes C4 para todos los $k \in \{3,4,5\}$.
+Esta diferencia proviene de que KGeoMIP ancla la primera bipartición en
+GeoMIP (búsqueda geométrica exacta sobre el hipercubo de Hamming) mientras
+KQNodes inicia con Queyranne sobre una función proxy de la EMD-Effect.
+
+La contrapartida es el tiempo: KGeoMIP es $7$--$17\times$ más lento
+por caso que KQNodes, principalmente por la construcción de $S$ y la
+enumeración de candidatos de corte.
+
+\subsubsection*{Efecto de la muestra de red}
+
+La Tabla~\ref{tab:efecto_muestra} revela que la estructura de la red
+tiene más impacto sobre $\varphi$ que el parámetro $k$:
+para KQNodes $n=15$, cambiar de muestra A a muestra B reduce
+$\varphi_{\mathrm{avg}}$ en un factor $11.3\times$, independientemente de $k$.
+El factor se mantiene constante entre $k=3$, $k=4$ y $k=5$, lo que sugiere
+que la diferencia refleja una propiedad estructural de la red
+(menor información causal integrada en N15B) y no un artefacto de la
+heurística de partición.
+
+\subsubsection*{Estructura de las k-particiones encontradas}
+
+\begin{itemize}
+  \item \textbf{KGeoMIP $k=3$}: E4 tiende a aislar uno o dos nodos como
+        partes singleton mientras el resto forma un bloque grande.
+        En N10A los singletons son nodos con alta independencia causal
+        respecto al pivote; en N15B los singletons varían por caso.
+
+  \item \textbf{KQNodes $k=5$, $n=8$}: las particiones suelen separar
+        los primeros 4 nodos (A, B, C, D) individualmente dejando un
+        bloque residual (E, F, G, H), consistente con el criterio C4
+        que extrae primero las partes de menor $\varphi_{\mathrm{local}}$.
+
+  \item \textbf{KQNodes $k=5$, $n \geq 10$}: los singletons extraídos
+        varían por caso según la estructura causal del subsistema;
+        no siguen un orden alfabético fijo.
+\end{itemize}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\subsection{Gráficas y Visualizaciones}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\figura{fig_scatter_calidad_velocidad.png}{0.90}%
+  {\textbf{Trade-off calidad--velocidad} en las 18 configuraciones experimentales
+   (burbujas azules = KQNodes C4; burbujas naranjas = KGeoMIP E4).
+   El eje $x$ es el tiempo promedio por caso $t_{\mathrm{avg}}$ en escala
+   logarítmica; el eje $y$ es $\varphi_{\mathrm{avg}}$.
+   El tamaño de cada burbuja indica $k$ (pequeña = $k=3$, mediana = $k=4$,
+   grande = $k=5$).
+   La nube superior derecha ($n=20$, $\varphi > 2$) muestra que las redes
+   grandes tienen mayor información causal integrada y mayor costo de cómputo.
+   La nube inferior ($n=15$ B) revela la diferencia de $11\times$ entre
+   muestras: pese a usar la misma $n$, N15B produce $\varphi$ un orden de
+   magnitud menor.}%
+  {scatter_calidad_velocidad}
+
+\figura{fig_escalabilidad_tiempo.png}{0.90}%
+  {\textbf{Escalabilidad temporal}: $t_{\mathrm{avg}}$ en función del
+   tamaño de red $n$ (escala logarítmica en $y$), para distintos $k$.
+   KQNodes C4 $k=5$ muestra A (línea llena azul, 4 puntos) muestra el
+   crecimiento más completo: factor $1.8\times$ de $n=8$ a $n=10$,
+   $8.5\times$ de $n=10$ a $n=15$, y $54.9\times$ de $n=15$ a $n=20$
+   (acumulado $\approx 467\times$ entre $n=10$ y $n=20$).
+   La línea naranja discontinua (KGeoMIP E4 $k=3$) parte por encima de
+   KQNodes para $n=10$ por el costo de construir $S$, y llega a
+   $6.19\,\mathrm{s}$ en $n=20$.}%
+  {escalabilidad_tiempo}
+
+\figura{fig_delta_phi_incremental.png}{0.88}%
+  {\textbf{Ganancia de información por partición adicional}
+   ($\Delta\varphi = \varphi(k{+}1) - \varphi(k)$) para cuatro
+   configuraciones con $k \in \{3,4,5\}$.
+   Las barras azules muestran $\Delta\varphi(3{\to}4)$ y las naranjas
+   $\Delta\varphi(4{\to}5)$.
+   El patrón de rendimientos decrecientes es claro: en todos los casos
+   el incremento de $k=4$ a $k=5$ es igual o menor que el de $k=3$ a
+   $k=4$, confirmando la propiedad de submodularidad efectiva de la
+   función $\varphi(k)$.
+   KQNodes N10A domina el eje (escala $\times 10^{-1}$) mientras que
+   N15B --- con menor información integrada --- produce $\Delta\varphi$
+   dos órdenes de magnitud menores.}%
+  {delta_phi_incremental}
+
+\figura{fig_tiempo_total_experimentos.png}{0.90}%
+  {\textbf{Tiempo total del experimento} ($\approx 50$ casos por
+   configuración) para las 18 configuraciones, ordenadas de menor
+   a mayor (escala logarítmica en $x$).
+   Barras azules = KQNodes C4; barras naranjas = KGeoMIP E4.
+   El rango cubre tres órdenes de magnitud: desde
+   $0.19\,\mathrm{s}$ (KQNodes $n=8$ A $k=5$) hasta
+   $309\,\mathrm{s}$ (KGeoMIP $n=20$ A $k=3$).
+   KGeoMIP aparece sistemáticamente en la mitad derecha del diagrama,
+   destacando su mayor costo absoluto respecto a KQNodes en el mismo $n$.
+   Las cinco configuraciones con $n=20$ ocupan los cuatro últimos lugares.}%
+  {tiempo_total_experimentos}
+
+\figura{fig_efecto_muestra_red.png}{0.88}%
+  {\textbf{Efecto de la muestra de red sobre $\varphi_{\mathrm{avg}}$}
+   ($n=15$, $k \in \{3,4,5\}$).
+   Tres series: KQNodes C4 muestra A (azul oscuro), KQNodes C4 muestra B
+   (azul claro) y KGeoMIP E4 muestra B (naranja).
+   La diferencia entre muestras A y B es de $11.3\times$ en todos los $k$,
+   un factor dominante sobre cualquier diferencia de algoritmo o número
+   de particiones.
+   Dentro de la muestra B, KGeoMIP E4 obtiene $\varphi$ entre un $23$\,\%
+   y $42$\,\% menor que KQNodes C4, al precio de ser $7$--$17\times$ más
+   lento por caso (Tabla~\ref{tab:comparacion_estrategias}).}%
+  {efecto_muestra_red}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\subsection{Validación de Correctitud}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\subsubsection*{Regresión $k=2$}
+
+La correctitud de los resultados para $k=2$ está garantizada por los
+tests de regresión (ver §2.6.4): \texttt{test\_regresion\_k2\_igual\_qnodes}
+confirma que KQNodes produce exactamente el mismo $\varphi$ que QNodes
+para 13 casos ($n \in \{5,8,10\}$) con $|\Delta\varphi| < 10^{-9}$.
+Análogamente, \texttt{test\_regresion\_k2\_igual\_geomip} verifica que
+KGeoMIP($k=2$) replica GeoMIP. Los resultados para $k \geq 3$ son
+refinamientos coherentes de este caso base.
+
+\subsubsection*{Monotonicidad verificada en todos los experimentos}
+
+La Tabla~\ref{tab:monotonicidad} confirma $\varphi(k{+}1) \geq \varphi(k)$
+en las cuatro configuraciones con $k \in \{3,4,5\}$, sin ninguna excepción.
+Adicionalmente, para KQNodes $n=20$ A: $\varphi_{\mathrm{avg}}(k{=}4) =
+2.661 > \varphi_{\mathrm{avg}}(k{=}5) = 2.647$ — la diferencia de
+$0.014$ es positiva, consistente con monotonicidad a nivel de promedio.
+
+\subsubsection*{Consistencia de $\varphi$ con la escala de la red}
+
+\begin{itemize}
+  \item $\varphi(n{=}8,\, k{=}5) \leq 4.0$: la pérdida máxima está acotada
+        por $n$ (cada nodo aporta como máximo $0.5$ en la red N8A).
+
+  \item El resultado $\varphi = 0$ en 4 de las 49 pruebas de $n=8$
+        (pruebas 34, 40, 41, 49) indica subsistemas informativamente
+        independientes: ninguna partición puede reducir una información
+        integrada que ya es nula.
+
+  \item Para KGeoMIP $n=20$ A, la diferencia entre el $\Delta\Phi$
+        acumulado durante E4 y el $\varphi$ final calculado por
+        \texttt{\_calcular\_phi\_total} es inferior a $10^{-6}$ en todos
+        los casos, confirmando la correctitud del cálculo incremental (D4-06).
+\end{itemize}

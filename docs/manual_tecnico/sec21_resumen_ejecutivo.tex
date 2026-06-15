@@ -1,0 +1,123 @@
+% ============================================================
+% §2.1 · Resumen Ejecutivo — Manual Técnico K-QGMIP
+% ============================================================
+
+\section{Resumen Ejecutivo}
+
+\subsection{Problema abordado y su relevancia}
+
+La \textbf{Teoría de la Información Integrada versión 4.0 (IIT 4.0)} propone que la consciencia
+y la causalidad irreducible de un sistema pueden cuantificarse mediante el valor $\varphi$
+(\textit{phi}). Para calcularlo es necesario encontrar la \textbf{Partición de Mínima Información
+(MIP)}: la descomposición del sistema en subconjuntos que minimiza la pérdida de información
+causal al tratar esas partes como independientes.
+
+Las implementaciones previas del proyecto GeoMIP (estrategia geométrica) y QNodes (estrategia
+submodular) resuelven este problema únicamente para \textbf{biparticiones} ($k = 2$), es decir,
+para la división del sistema en exactamente dos partes. Sin embargo, la formulación completa de
+IIT 4.0 exige explorar \textbf{k-particiones} ($k \geq 3$), lo cual introduce una explosión
+combinatoria severa: el número de k-particiones distintas de $n$ variables está dado por el
+\textbf{número de Stirling de segundo tipo} $S(n, k)$, que crece superexponencialmente.
+
+\begin{table}[H]
+  \centering
+  \caption{Número de k-particiones posibles $S(n,k)$ para distintos valores de $n$ y $k$.
+           Resaltados en gris los casos computacionalmente inviables por búsqueda exhaustiva.}
+  \label{tab:stirling}
+  \begin{tabular}{ccccc}
+    \toprule
+    $n$ & $k=2$ & $k=3$ & $k=4$ & $k=5$ \\
+    \midrule
+    5  & 15        & 25        & 10            & 1          \\
+    8  & 127       & 966       & 2\,646        & 3\,025     \\
+    10 & 511       & 9\,330    & 145\,750      & 1\,082\,250 \\
+    20 & $\sim$524\,K & $\sim$580\,M & \cellcolor{gray!20}--- & \cellcolor{gray!20}--- \\
+    25 & $\sim$16\,M  & \cellcolor{gray!20}--- & \cellcolor{gray!20}--- & \cellcolor{gray!20}--- \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\smallskip
+El presente proyecto extiende ambas estrategias al caso general
+$k \in \{2, 3, 4, 5\}$ bajo las denominaciones \textbf{KGeoMIP} y \textbf{KQNodes},
+garantizando que para $k = 2$ los resultados son exactamente equivalentes a las implementaciones
+originales.
+
+\subsection{Enfoque algorítmico implementado}
+
+Se implementaron dos estrategias complementarias de naturaleza distinta:
+
+\subsubsection*{KGeoMIP — Refinamiento divisivo geométrico (Estrategia E4)}
+
+KGeoMIP ancla la solución óptima de $k=2$ obtenida por GeoMIP (bipartición exacta via tabla de
+costos BFS sobre el hipercubo de Hamming) y aplica un \textbf{refinamiento divisivo top-down}:
+
+\begin{enumerate}
+  \item Se construye una \textbf{matriz de similitud causal} $S \in \mathbb{R}^{D \times D}$
+        a partir de la tabla de transiciones de GeoMIP, donde $S_{ij}$ cuantifica cuán
+        similar es el comportamiento causal de las variables $i$ y $j$.
+  \item En cada paso $t = 2, 3, \ldots, k$, de todas las partes actuales se selecciona
+        la que produce el menor \textbf{incremento de pérdida} $\Delta\Phi$ al bipartirla,
+        usando la similitud causal para guiar la selección de candidatos.
+  \item El proceso se repite $k-1$ veces hasta obtener la k-partición deseada.
+\end{enumerate}
+
+Complejidad dominante: $\mathcal{O}(k \cdot D^2 \cdot 2^D)$, donde $D$ es la dimensión del
+subsistema.
+
+\subsubsection*{KQNodes — Refinamiento iterativo submodular (Criterio C4)}
+
+KQNodes extiende el algoritmo de Queyranne (Ordenamiento de Máxima Adyacencia, MAO) al caso
+$k \geq 3$ mediante un \textbf{refinamiento greedy con MinHeap}:
+
+\begin{enumerate}
+  \item Se construye un oracle restringido por bloque que aproxima el costo de bipartición
+        mediante promedios ponderados sobre tensores n-dimensionales.
+  \item En cada iteración del refinamiento, el MinHeap selecciona la parte con menor
+        $\varphi_{\text{local}}$ (criterio C4) y la bipartite usando Queyranne (exacto dentro
+        del bloque).
+  \item La EMD-Effect real se evalúa una sola vez sobre la k-partición ganadora.
+\end{enumerate}
+
+Complejidad dominante: $\mathcal{O}(k \cdot D^3 \cdot N)$, donde $N$ es el número de nodos
+y $D$ la dimensión del subsistema.
+
+\subsection{Principales resultados y contribuciones}
+
+\begin{itemize}
+  \item \textbf{Regresión exacta $k=2$}: ambas estrategias producen resultados idénticos a
+        GeoMIP y QNodes para $k=2$, verificado con tolerancia $|\Delta\varphi| < 10^{-9}$ sobre
+        13 casos de prueba (redes $n \in \{5, 8, 10\}$).
+
+  \item \textbf{Monotonicidad garantizada}: $\varphi(k+1) \geq \varphi(k)$ por construcción
+        en ambas estrategias, propiedad consistente con la teoría IIT 4.0.
+
+  \item \textbf{Escalabilidad}: KGeoMIP procesa sistemas de hasta $n = 25$ nodos y KQNodes
+        de hasta $n = 20$ nodos en tiempos de ejecución del orden de segundos a minutos,
+        frente a días o semanas que requeriría la búsqueda exhaustiva.
+
+  \item \textbf{Criterio C4 vs C1 en KQNodes}: los experimentos A/B muestran que el criterio
+        C4 (MinHeap por $\varphi_{\text{local}}$ mínimo) produce particiones con menor brecha
+        respecto al óptimo que C1 (bipartir la parte más grande), confirmando la superioridad
+        de la heurística basada en información integrada.
+\end{itemize}
+
+\subsection{Limitaciones encontradas y recomendaciones de uso}
+
+\begin{itemize}
+  \item \textbf{No optimalidad global para $k \geq 3$}: ninguna de las dos estrategias
+        garantiza encontrar la k-partición de mínimo $\varphi$ global. Ambas son heurísticas
+        de refinamiento cuya calidad depende de la calidad de la bipartición ancla ($k=2$) y
+        del criterio de selección.
+
+  \item \textbf{Crecimiento exponencial del oracle}: el oracle de KQNodes evalúa tensores
+        de forma $(N, 2^m)$ donde $m$ es la dimensión del bloque; para $D \geq 22$ el consumo
+        de memoria puede superar los 8 GB. Se recomienda usar KGeoMIP para sistemas grandes.
+
+  \item \textbf{KGeoMIP limitado por la tabla BFS}: la tabla T de GeoMIP ocupa $\mathcal{O}(2^D)$
+        en memoria. Para $D > 25$ se requiere memoización parcial o acceso a disco.
+
+  \item \textbf{Recomendación de uso}: para $n \leq 15$ y $k \leq 5$ ambas estrategias son
+        apropiadas; para $15 < n \leq 25$ se recomienda KGeoMIP-E4; para $n > 25$ se requieren
+        extensiones fuera del alcance de este proyecto.
+\end{itemize}

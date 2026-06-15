@@ -1,0 +1,340 @@
+% ============================================================
+% §6 · Ejecución del software — Manual de Usuario K-QGMIP
+% ============================================================
+
+\section{Ejecución del software}
+
+Esta sección describe en detalle cómo ejecutar K-QGMIP. Se organiza en tres partes:
+la entrada de datos del sistema (común a ambos métodos), la ejecución del método KGeoMIP
+y la ejecución del método KQNodes. Antes de proceder, asegúrese de haber completado
+la instalación descrita en la Sección de Instalación y Configuración.
+
+% ============================================================
+\subsection{Entrada de datos del sistema}
+\label{sec:entrada_datos}
+% ============================================================
+
+Ambos métodos requieren los mismos datos de entrada: una Matriz de Probabilidad de
+Transición (TPM), un estado inicial y tres máscaras binarias que definen el subsistema
+de interés.
+
+% ------------------------------------------------------------
+\subsubsection{Matriz de Probabilidad de Transición (TPM)}
+% ------------------------------------------------------------
+
+La \textbf{TPM} codifica la dinámica del sistema: para cada estado $s(t)$ del sistema en
+el instante $t$, la TPM especifica la distribución de probabilidad sobre los estados
+posibles en $t+1$. K-QGMIP utiliza la representación \textit{estado-nodo} en notación
+\textit{little-endian}.
+
+Las redes de prueba se distribuyen como archivos CSV con el esquema de nombre:
+
+\begin{lstlisting}
+N{n}{pagina}.csv
+\end{lstlisting}
+
+donde \texttt{n} es el número de nodos y \texttt{pagina} es una letra que distingue
+distintas redes del mismo tamaño (\texttt{A}, \texttt{B}, etc.).
+Por ejemplo, \texttt{N20A.csv} es la red de muestra de 20 nodos, página A.
+
+La ubicación de los archivos depende del método utilizado:
+
+\begin{table}[h!]
+\centering
+\begin{tabular}{|l|l|}
+\hline
+\textbf{Método} & \textbf{Carpeta de muestras} \\
+\hline
+KQNodes  & \texttt{code/QNodes/src/.samples/} \\
+KGeoMIP  & \texttt{code/GeoMIP/data/samples/} \\
+\hline
+\end{tabular}
+\caption{Ubicación de las redes de prueba (TPM en CSV) por método.}
+\label{tab:rutas_samples}
+\end{table}
+
+En KGeoMIP, el \texttt{Manager} busca la red en \texttt{data/samples/} de forma
+predeterminada; la ruta puede sobreescribirse con la variable de entorno
+\texttt{GEOMIP\_SAMPLES\_DIR} si se desea apuntar a un directorio distinto.
+
+La TPM se carga automáticamente a través de la clase \texttt{Manager}:
+
+\begin{lstlisting}[language=Python]
+import numpy as np
+from src.controllers.manager import Manager
+
+gestor = Manager("10000000000000000000")  # estado inicial n=20
+tpm = gestor.cargar_red()  # np.ndarray de shape (2^n, n)
+\end{lstlisting}
+
+Internamente, \texttt{cargar\_red()} usa \texttt{numpy.genfromtxt} con delimitador
+\texttt{;} y selecciona el archivo \texttt{N\{n\}\{pagina\}.csv} correspondiente al
+estado inicial configurado.
+
+% ------------------------------------------------------------
+\subsubsection{Estado inicial del sistema}
+% ------------------------------------------------------------
+
+El \textbf{estado inicial} $s(t)$ es una cadena binaria de longitud $n$ que indica
+el estado de cada nodo en el instante de análisis. El nodo más a la izquierda
+corresponde al bit de menor peso (\textit{little-endian}).
+
+\begin{lstlisting}[language=Python]
+ESTADO = "10000000000000000000"   # n=20: nodo 0 activo, resto inactivos
+ESTADO = "11111111"               # n=8:  todos los nodos activos
+ESTADO = "101"                    # n=3:  nodos 0 y 2 activos
+\end{lstlisting}
+
+La longitud de la cadena determina automáticamente el tamaño $n$ del sistema.
+
+% ------------------------------------------------------------
+\subsubsection{Máscaras binarias}
+% ------------------------------------------------------------
+
+Tres cadenas binarias de longitud $n$ definen el subsistema que se analizará:
+
+\begin{itemize}
+  \item \textbf{Condición}: nodos cuyo estado en $t$ se fija al analizar el subsistema.
+        Habitualmente se establece como \texttt{"1"*n} (todos los nodos).
+  \item \textbf{Alcance} (\textit{scope}): subconjunto de nodos en $t+1$ que se incluyen
+        en el análisis. Ejemplos para $n=5$: \texttt{"11100"} incluye los nodos A, B y C.
+  \item \textbf{Mecanismo}: subconjunto de nodos en $t$ que actúan como causa del
+        subsistema. Ejemplos para $n=5$: \texttt{"00111"} incluye los nodos C, D y E.
+\end{itemize}
+
+En los archivos de prueba por lotes (Excel), alcance y mecanismo se especifican
+con letras (\texttt{"ABC"}, \texttt{"CDE"}) y el \textit{framework} los convierte
+automáticamente a cadenas binarias.
+
+% ------------------------------------------------------------
+\subsubsection{Inicialización y preparación del subsistema}
+% ------------------------------------------------------------
+
+El objeto \texttt{Manager} centraliza la carga de la TPM y la configuración de rutas.
+Una vez creado, se pasa la TPM directamente al constructor de la estrategia elegida:
+
+\begin{lstlisting}[language=Python]
+from src.controllers.manager import Manager
+from src.strategies.kqnodes import KQNodes
+
+gestor = Manager(ESTADO)
+tpm    = gestor.cargar_red()
+kqn    = KQNodes(tpm)
+\end{lstlisting}
+
+La preparación del subsistema (condicionamiento y substracción) es automática:
+ocurre dentro del método \texttt{aplicar\_estrategia()} de la clase base \texttt{SIA}
+y el usuario no interviene directamente en ese proceso.
+
+% ============================================================
+\subsection{Método KGeoMIP (Estrategia Geométrica)}
+\label{sec:kgeomip}
+% ============================================================
+
+KGeoMIP extiende la estrategia geométrica de GeoMIP al caso de k-particiones mediante
+un \textbf{refinamiento divisivo top-down} (variante E4): parte de la bipartición óptima
+que GeoMIP ya encontró ($k=2$) y en cada paso divide iterativamente la parte cuyo corte
+produce el menor incremento de pérdida $\Delta\Phi$, hasta obtener $k$ partes.
+Toda la tabla de costos $T$ y la matriz de similitud causal $S$ se calculan \textbf{una
+sola vez} y se reutilizan para todos los valores de $k$, lo que hace al método eficiente
+incluso para sistemas de hasta 25 nodos.
+
+% ------------------------------------------------------------
+\subsubsection{Parámetros de configuración}
+% ------------------------------------------------------------
+
+Todos los parámetros se configuran en el archivo
+\texttt{code/GeoMIP/exec\_kgeomip.py}:
+
+\begin{lstlisting}[language=Python]
+ESTADO:   str = "1" + "0" * 24   # estado inicial (define n=25)
+K:        int = 5                 # numero de partes (2, 3, 4 o 5)
+VARIANTE: str = "E4"             # heuristica de refinamiento
+MUESTRA:  str = "A"              # pagina de la red de prueba
+\end{lstlisting}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{|l|l|p{7cm}|}
+\hline
+\textbf{Parámetro} & \textbf{Valores válidos} & \textbf{Descripción} \\
+\hline
+\texttt{ESTADO} & Cadena binaria longitud $n$ &
+  Estado inicial $s(t)$. Su longitud determina el tamaño del sistema y
+  la red a cargar (\texttt{N\{n\}\{MUESTRA\}.csv}). \\
+\texttt{K} & \texttt{2}, \texttt{3}, \texttt{4}, \texttt{5} &
+  Número de partes de la k-partición. Con \texttt{K=2} reproduce
+  exactamente el resultado de GeoMIP. \\
+\texttt{VARIANTE} & \texttt{"E4"}, \texttt{"A"} &
+  \texttt{"E4"} = refinamiento divisivo por MinHeap con $\Delta\Phi$
+  (recomendado; garantiza regresión $k=2$ y monotonicidad). \newline
+  \texttt{"A"} = clustering aglomerativo sobre la matriz de similitud $S$
+  (solo para comparación experimental, sin garantías). \\
+\texttt{MUESTRA} & \texttt{"A"}, \texttt{"B"}, \ldots &
+  Letra que identifica la red de prueba. \\
+\hline
+\end{tabular}
+\caption{Parámetros configurables de KGeoMIP en \texttt{exec\_kgeomip.py}.}
+\label{tab:params_kgeomip}
+\end{table}
+
+% ------------------------------------------------------------
+\subsubsection{Pasos de ejecución}
+% ------------------------------------------------------------
+
+\begin{enumerate}
+  \item \textbf{Abrir el archivo de configuración.} Con el entorno virtual activo,
+        navegue a la carpeta del método:
+\begin{lstlisting}[language=bash]
+cd code/GeoMIP
+\end{lstlisting}
+
+  \item \textbf{Configurar los parámetros.} Edite \texttt{ESTADO}, \texttt{K},
+        \texttt{VARIANTE} y \texttt{MUESTRA} en \texttt{exec\_kgeomip.py} según
+        el sistema y el análisis deseado.
+
+  \item \textbf{Ejecutar el script.}
+\begin{lstlisting}[language=bash]
+uv run exec_kgeomip.py
+\end{lstlisting}
+        El \textit{framework} carga la TPM desde \texttt{data/samples/N\{n\}\{MUESTRA\}.csv},
+        lee todas las filas de alcance y mecanismo del Excel de pruebas para el tamaño $n$,
+        y ejecuta KGeoMIP sobre cada combinación con los parámetros configurados.
+
+  \item \textbf{Localizar los resultados.} Los archivos de salida se guardan en:
+\begin{lstlisting}
+results/kgeomip/resultado__N{n}_{MUESTRA}_{K}.csv
+results/kgeomip/resultado__N{n}_{MUESTRA}_{K}.md
+\end{lstlisting}
+        El CSV contiene una fila por cada combinación (prueba, $k$, variante) con las
+        columnas: \texttt{Prueba}, \texttt{Alcance}, \texttt{Mecanismo}, \texttt{k},
+        \texttt{Criterio}, \texttt{Partición}, \texttt{Pérdida ($\varphi$)},
+        \texttt{Tiempo (s)}.
+\end{enumerate}
+
+% ------------------------------------------------------------
+\subsubsection{Ejemplo de ejecución}
+% ------------------------------------------------------------
+
+El siguiente ejemplo ejecuta KGeoMIP sobre la red de 25 nodos (muestra A),
+buscando la 5-partición de mínima información con la variante E4:
+
+\begin{lstlisting}[language=Python]
+# exec_kgeomip.py
+ESTADO   = "1" + "0" * 24   # n=25, nodo 0 activo
+K        = 5
+VARIANTE = "E4"
+MUESTRA  = "A"
+\end{lstlisting}
+
+Salida esperada en consola:
+
+\begin{lstlisting}
+n=25: 45 pruebas x variante E4
+  Prueba   1/ 45 -- Alc: ABCDE    Mec: ABCDE
+  Prueba   2/ 45 -- Alc: ABCDEF   Mec: ABCDE
+  ...
+  CSV: results/kgeomip/resultado__N25_A_5.csv (45 filas)
+  MD:  results/kgeomip/resultado__N25_A_5.md
+\end{lstlisting}
+
+% ============================================================
+\subsection{Método KQNodes (Estrategia Submodular)}
+\label{sec:kqnodes_ejecucion}
+% ============================================================
+
+KQNodes extiende el algoritmo de Queyranne (Ordenamiento de Máxima Adyacencia)
+al caso de k-particiones mediante refinamiento iterativo de biparticiones.
+Es la estrategia prioritaria para sistemas de tamaño moderado a grande donde
+la eficiencia computacional es crítica.
+
+% ------------------------------------------------------------
+\subsubsection{Parámetros de configuración}
+% ------------------------------------------------------------
+
+Todos los parámetros se configuran directamente en el archivo
+\texttt{code/QNodes/exec\_kqnodes.py}:
+
+\begin{lstlisting}[language=Python]
+ESTADO:   str = "1" + "0" * 19   # estado inicial (define n=20)
+K:        int = 5                 # numero de partes (2, 3, 4 o 5)
+CRITERIO: str = "C4"             # criterio de refinamiento
+MUESTRA:  str = "A"              # pagina de la red de prueba
+\end{lstlisting}
+
+\begin{table}[h!]
+\centering
+\begin{tabular}{|l|l|p{7cm}|}
+\hline
+\textbf{Parámetro} & \textbf{Valores válidos} & \textbf{Descripción} \\
+\hline
+\texttt{ESTADO}   & Cadena binaria de longitud $n$ & Estado inicial $s(t)$. Su longitud determina el tamaño del sistema. \\
+\texttt{K}        & \texttt{2}, \texttt{3}, \texttt{4}, \texttt{5} & Número de partes de la k-partición. \\
+\texttt{CRITERIO} & \texttt{"C4"}, \texttt{"C1"} & Criterio de refinamiento: \texttt{C4} = corte marginal mínimo; \texttt{C1} = tamaño máximo de parte. \\
+\texttt{MUESTRA}  & \texttt{"A"}, \texttt{"B"}, \ldots & Letra de la red de prueba a analizar (\texttt{N\{n\}\{MUESTRA\}.csv}). \\
+\hline
+\end{tabular}
+\caption{Parámetros configurables de KQNodes en \texttt{exec\_kqnodes.py}.}
+\label{tab:params_kqnodes}
+\end{table}
+
+% ------------------------------------------------------------
+\subsubsection{Pasos de ejecución}
+% ------------------------------------------------------------
+
+\begin{enumerate}
+  \item \textbf{Abrir el archivo de configuración.} En un terminal con el entorno
+        virtual activo, navegue a la carpeta del método:
+\begin{lstlisting}[language=bash]
+cd code/QNodes
+\end{lstlisting}
+
+  \item \textbf{Configurar los parámetros.} Edite las cuatro variables al inicio de
+        \texttt{exec\_kqnodes.py} según el sistema y el análisis que desea realizar.
+
+  \item \textbf{Ejecutar el script.}
+\begin{lstlisting}[language=bash]
+uv run exec_kqnodes.py
+\end{lstlisting}
+        El \textit{framework} carga automáticamente la TPM correspondiente desde
+        \texttt{data/DatosPruebas2026\_1.xlsx}, procesa todas las filas de alcance y
+        mecanismo de la hoja asociada al tamaño $n$, y ejecuta KQNodes para cada
+        combinación con el $k$ y criterio configurados.
+
+  \item \textbf{Localizar los resultados.} Los archivos de salida se guardan en:
+\begin{lstlisting}
+results/kqnodes/resultado__N{n}_{MUESTRA}_{K}.csv
+results/kqnodes/resultado__N{n}_{MUESTRA}_{K}.md
+\end{lstlisting}
+        El CSV contiene una fila por cada combinación
+        (prueba, $k$, criterio) con las columnas:
+        \texttt{Prueba}, \texttt{Alcance}, \texttt{Mecanismo}, \texttt{k},
+        \texttt{Criterio}, \texttt{Partición}, \texttt{Pérdida ($\varphi$)},
+        \texttt{Tiempo (s)}.
+\end{enumerate}
+
+% ------------------------------------------------------------
+\subsubsection{Ejemplo de ejecución}
+% ------------------------------------------------------------
+
+El siguiente ejemplo ejecuta KQNodes sobre la red de 20 nodos (muestra A),
+buscando la 5-partición de mínima información con criterio de corte marginal mínimo:
+
+\begin{lstlisting}[language=Python]
+# exec_kqnodes.py
+ESTADO   = "1" + "0" * 19   # n=20, nodo 0 activo
+K        = 5
+CRITERIO = "C4"
+MUESTRA  = "A"
+\end{lstlisting}
+
+Salida esperada en consola:
+
+\begin{lstlisting}
+n=20: 45 pruebas x 1 k x 1 criterios = 45 ejecuciones
+  Prueba   1/ 45 -- Alc: ABCDE    Mec: ABCDE
+  Prueba   2/ 45 -- Alc: ABCDEF   Mec: ABCDE
+  ...
+  CSV: results/kqnodes/resultado__N20_A_5.csv (45 filas)
+  MD:  results/kqnodes/resultado__N20_A_5.md
+\end{lstlisting}

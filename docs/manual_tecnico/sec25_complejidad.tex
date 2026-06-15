@@ -1,0 +1,333 @@
+% ============================================================
+% §2.5 · Análisis de Complejidad — Manual Técnico K-QGMIP
+% ============================================================
+
+\section{Análisis de Complejidad}
+
+En esta sección se usan las siguientes variables:
+$n$ = número de nodos del sistema completo,
+$D$ = dimensión del subsistema (número de variables presentes/futuras tras substracción),
+$N$ = número de NCubes (nodos en el alcance del subsistema, $N \leq n$),
+$k$ = número de partes de la k-partición,
+$m$ = cardinalidad de un bloque en el refinamiento ($m \leq D$),
+$S(n,k)$ = número de Stirling de segundo tipo.
+
+% ─────────────────────────────────────────────────────────────────────────────
+\subsection{Complejidad temporal}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\subsubsection*{KQNodes — por componente}
+
+\begin{table}[H]
+  \centering
+  \caption{Complejidad temporal de cada componente de KQNodes.}
+  \label{tab:complejidad_kqnodes}
+  \begin{tabular}{p{4.2cm} p{3.5cm} p{5.5cm}}
+    \toprule
+    \textbf{Componente} & \textbf{Complejidad} & \textbf{Descripción} \\
+    \midrule
+    Carga de TPM
+      & $\mathcal{O}(2^n \cdot n)$
+      & Lectura de CSV con \texttt{np.genfromtxt} \\[3pt]
+
+    \texttt{sia\_preparar\_subsistema}
+      & $\mathcal{O}(n \cdot 2^n)$
+      & Condicionamiento y substracción del subsistema \\[3pt]
+
+    \texttt{\_oracle\_restringido} (bloque $m$)
+      & $\mathcal{O}(m^2)$ llamadas $\times$ $\mathcal{O}(N \cdot 2^m / 2)$
+      & Oracle lazy con caché bidireccional; el complemento gratis reduce evaluaciones reales a la mitad \\[3pt]
+
+    \texttt{qnodes}$(m, f, \text{mask})$
+      & $\mathcal{O}(m^3)$ llamadas al oracle
+      & MAO de Queyranne; $m^3$ en número de evaluaciones de $f$ \\[3pt]
+
+    \texttt{\_qnodes\_sobre\_bloque} (bloque $m$)
+      & $\mathcal{O}(m^3 \cdot N \cdot 2^m / 2)$
+      & Producto oracle $\times$ MAO \\[3pt]
+
+    \texttt{\_refinar\_c4} ($k$ iteraciones)
+      & $\mathcal{O}(k \cdot D^3 \cdot N \cdot 2^D / 2)$
+      & $\leq 2k{-}1$ bloques; bloque máximo $m = D$ \\[3pt]
+
+    \texttt{\_calcular\_phi\_total}
+      & $\mathcal{O}(N \cdot D)$
+      & Una sola evaluación EMD-Effect al final \\[3pt]
+
+    \midrule
+    \textbf{Total KQNodes} $k \geq 3$
+      & $\boldsymbol{\mathcal{O}(k \cdot D^3 \cdot N)}$
+      & Asintótico dominante (absorbe el $2^D$ del oracle con caché) \\[3pt]
+
+    Búsqueda exhaustiva
+      & $\mathcal{O}(S(n,k) \cdot N)$
+      & $S(n,k)$ crece superexponencialmente \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsubsection*{KGeoMIP — por componente}
+
+\begin{table}[H]
+  \centering
+  \caption{Complejidad temporal de cada componente de KGeoMIP.}
+  \label{tab:complejidad_kgeomip}
+  \begin{tabular}{p{4.2cm} p{3.5cm} p{5.5cm}}
+    \toprule
+    \textbf{Componente} & \textbf{Complejidad} & \textbf{Descripción} \\
+    \midrule
+    GeoMIP (anclaje $k=2$)
+      & $\mathcal{O}(D \cdot 2^D)$
+      & Construcción de tabla BFS sobre hipercubo; ocurre una sola vez \\[3pt]
+
+    Construcción de $S$ (D4-02)
+      & $\mathcal{O}(D^2 \cdot 2^D)$
+      & Multiplicación matricial por bloques \texttt{tabla.T @ difiere};
+        calculada una vez por subsistema \\[3pt]
+
+    \texttt{\_marginales\_mascara} (por máscara)
+      & $\mathcal{O}(2^{|P|})$ sin caché; $\mathcal{O}(1)$ con caché
+      & Indexación sobre vista $n$-dimensional \texttt{\_flat\_nd} \\[3pt]
+
+    \texttt{\_delta\_phi\_corte}$(A, B)$
+      & $\mathcal{O}(1)$ con cachés llenos; $\mathcal{O}(2^D)$ primera vez
+      & Tres lookups de \texttt{\_costo\_cache} \\[3pt]
+
+    \texttt{MejorCorte} (bloque $m$, modo auto)
+      & $\mathcal{O}(2^{m-1})$ si $m \leq 13$; $\mathcal{O}(m^2 + 20)$ si $m > 13$
+      & Umbral $U = 4096$: exhaustivo para $2^{m-1}-1 \leq 4096$ \\[3pt]
+
+    \texttt{\_refinar\_e4} ($k$ iteraciones)
+      & $\leq 2(k{-}1)$ llamadas a MejorCorte
+      & Cada llamada: $\mathcal{O}(2^{m-1} \cdot 2^D)$ o $\mathcal{O}(m^2 \cdot 2^D)$ \\[3pt]
+
+    \texttt{\_calcular\_phi\_total}
+      & $\mathcal{O}(N \cdot D)$
+      & Una sola evaluación EMD-Effect al final \\[3pt]
+
+    \midrule
+    \textbf{Total KGeoMIP} $k \geq 3$
+      & $\boldsymbol{\mathcal{O}(k \cdot D^2 \cdot 2^D)}$
+      & Dominado por la construcción de $S$ y el refinamiento \\[3pt]
+
+    Búsqueda exhaustiva
+      & $\mathcal{O}(S(n,k) \cdot N)$
+      & Referencia de comparación \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsubsection*{Operaciones dominantes e identificación de cuellos de botella}
+
+Para KQNodes, la operación dominante es \textbf{la evaluación del oracle} en cada bloque:
+cada llamada a \texttt{\_qnodes\_sobre\_bloque} requiere $\mathcal{O}(m^3)$ evaluaciones
+de $f_{\text{local}}$, y cada evaluación accede a un tensor de forma $(N, 2^m)$.
+Para $N=20$ y $m=20$, el tensor tiene $\sim$20 millones de entradas; con caché, el número
+de evaluaciones distintas se reduce a $\mathcal{O}(m^2/2)$ (complemento gratis).
+
+Para KGeoMIP, el cuello de botella es \textbf{la construcción de $S$}: costo
+$\mathcal{O}(D^2 \cdot 2^D)$, ejecutado una sola vez por subsistema. Para $D=25$:
+$625 \times 2^{25} \approx 2 \times 10^{10}$ operaciones; mitigado por la implementación
+BLAS en bloques de $2^{16}$ estados.
+
+% ─────────────────────────────────────────────────────────────────────────────
+\subsection{Complejidad espacial}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\begin{table}[H]
+  \centering
+  \caption{Uso de memoria de las principales estructuras de datos.}
+  \label{tab:complejidad_espacial}
+  \begin{tabular}{p{3.5cm} p{3cm} p{6.5cm}}
+    \toprule
+    \textbf{Estructura} & \textbf{Tamaño} & \textbf{Notas} \\
+    \midrule
+    TPM cargada
+      & $\mathcal{O}(2^n \cdot n)$
+      & Permanente; $\sim$40 MB para $n=20$ \\[3pt]
+
+    Subsistema (\texttt{System} + NCubes)
+      & $\mathcal{O}(N \cdot 2^D)$
+      & $N$ NCubes de forma $(2,\ldots,2)$ con $D$ ejes \\[3pt]
+
+    Tabla $T$ (\texttt{\_flat\_T})
+      & $\mathcal{O}(2^D \cdot D)$
+      & GeoMIP; $\sim$800 MB para $D=25$ (float32) \\[3pt]
+
+    Vista \texttt{\_flat\_nd}
+      & $\mathcal{O}(1)$ adicional
+      & Es un \texttt{reshape} sin copia de \texttt{\_flat\_T} \\[3pt]
+
+    Matriz $S$
+      & $\mathcal{O}(D^2)$
+      & $D^2$ entradas float64; $< 5$ KB para $D=25$ \\[3pt]
+
+    \texttt{\_marg\_cache}
+      & $\mathcal{O}(2^D \cdot D)$ en el peor caso
+      & A lo sumo $2^D$ máscaras distintas; cada una almacena
+        un vector de $D$ floats \\[3pt]
+
+    \texttt{\_costo\_cache}
+      & $\mathcal{O}(2^D)$ en el peor caso
+      & A lo sumo $2^D$ frozensets distintos; valor es un float \\[3pt]
+
+    MinHeap E4 / C4
+      & $\mathcal{O}(k)$
+      & El heap tiene a lo sumo $k{-}1$ elementos en estado estacionario \\[3pt]
+
+    \texttt{\_means\_cache} (oracle KQNodes)
+      & $\mathcal{O}(2^m)$ por bloque
+      & Local a cada llamada; se descarta al terminar el bloque \\[3pt]
+
+    \midrule
+    \textbf{Total KGeoMIP}
+      & $\mathcal{O}(2^D \cdot D)$
+      & Dominado por \texttt{\_flat\_T} \\[3pt]
+
+    \textbf{Total KQNodes}
+      & $\mathcal{O}(N \cdot 2^D)$
+      & Dominado por \texttt{data\_nd} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\subsection{Análisis de casos}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\subsubsection*{Mejor caso}
+
+El mejor caso para ambas estrategias es \textbf{$k = 2$}:
+\begin{itemize}
+  \item \textbf{KGeoMIP}: retorna directamente la solución de GeoMIP sin construir $S$
+        ni ejecutar el refinamiento. Costo total: $\mathcal{O}(D \cdot 2^D)$.
+  \item \textbf{KQNodes}: ejecuta Queyranne una sola vez sobre $V$ completo.
+        Costo total: $\mathcal{O}(D^3 \cdot N)$.
+\end{itemize}
+Ambos son \textbf{exactos} para $k=2$ (verificado con $|\Delta\varphi| < 10^{-9}$).
+
+El mejor caso dentro de $k \geq 3$ ocurre cuando \textbf{todos los bloques del
+refinamiento son de tamaño 1 o 2}: el heap se vacía prematuramente porque no quedan
+partes partibles, lo que termina el refinamiento antes de llegar a $k$ partes. Esto
+sucede cuando $D < k$ (más partes pedidas que dimensiones disponibles).
+
+\subsubsection*{Peor caso}
+
+El peor caso para \textbf{KQNodes} es $k = D$ (atomización total, cada dimensión en su
+propia parte) con $m = D$ en el primer bloque: se ejecutan $\mathcal{O}(D^3)$
+evaluaciones del oracle sobre el bloque completo, cada una sobre tensores de tamaño
+$\mathcal{O}(N \cdot 2^D)$. Costo total: $\mathcal{O}(D \cdot D^3 \cdot N) = \mathcal{O}(D^4 \cdot N)$.
+
+\smallskip
+\noindent\textbf{Ejemplo} ($n = 5$, $D = 5$, $N = 5$, $k = D = 5$):
+El algoritmo hace $k-1 = 4$ iteraciones. El bloque inicial tiene $m=5$ y Queyranne
+realiza $\mathcal{O}(5^3) = 125$ evaluaciones del oracle, cada una sobre un tensor
+$(5 \times 2^5) = 160$ valores. Los bloques hijos son $m=3$ ($27$ eval.), $m=2$ ($8$
+eval.) y $m=1$ (trivial). Total: $125 + 27 + 8 \approx 160$ evaluaciones, frente a
+$S(5,5) = 1$ partición exhaustiva — en este caso el peor caso es de pocos nodos y la
+ventaja no se aprecia. Para $n = 8$, $k = D = 8$: Queyranne en el primer bloque cuesta
+$8^3 = 512$ evaluaciones y el total escala a $\mathcal{O}(8^4 \times 8) \approx 26\,000$
+operaciones, mientras la exhaustiva requeriría $S(8,8) \times 8 = 1 \times 8 = 8$ (trivial
+para $k=n$). El peor caso práctico ocurre en $k < n$ con $k$ cercano a $D$:
+para $n=10$, $k=8$, $D=10$: $\mathcal{O}(8 \times 10^3 \times 10) = 80\,000$ operaciones.
+
+\bigskip
+
+El peor caso para \textbf{KGeoMIP} es cuando todos los bloques del refinamiento superan
+el umbral $U = 4096$ (modo guiado\_S), lo que requiere generar candidatos constructivos
+$\mathcal{O}(m^2)$ para cada bloque. Para $k=5$ sobre $D=25$: $\leq 8$ bloques $\times$
+$\mathcal{O}(25^2) = 625$ candidatos $\times$ $\mathcal{O}(2^{25})$ por $\Delta\Phi$:
+dominante es la construcción de $S$ en $\mathcal{O}(D^2 \cdot 2^D)$.
+
+\smallskip
+\noindent\textbf{Ejemplo} ($n = 20$, $D = 20$, $k = 3$):
+\begin{itemize}
+  \item \textbf{Construcción de $S$}: $D^2 \times 2^D = 400 \times 2^{20}
+        \approx 4 \times 10^8$ operaciones (ejecutadas una sola vez con BLAS).
+  \item \textbf{Refinamiento E4}: $\leq 4$ llamadas a \texttt{MejorCorte}.
+        Cada bloque tiene $m \approx 10$ elementos; $2^{10-1}-1 = 511 \leq 4096$,
+        así que aplica el modo exhaustivo (no guiado\_S). Costo por bloque:
+        $511 \times \mathcal{O}(2^{20}) \approx 5 \times 10^8$ operaciones.
+  \item \textbf{Comparación}: la construcción de $S$ ($4\times10^8$) y cada bloque
+        exhaustivo ($5\times10^8$) tienen el mismo orden — ambos dominan. La
+        búsqueda exhaustiva requeriría $S(20,3) \approx 580 \times 10^6$ evaluaciones
+        EMD completas: inviable en tiempo real.
+\end{itemize}
+
+Las \textbf{características que conducen al peor caso} son:
+\begin{itemize}
+  \item $k$ grande (cercano a $D$): más iteraciones del heap y bloques más pequeños
+        que no aceleran el oracle.
+  \item $D$ grande con bloque inicial de tamaño $D$: el primer bloque del heap es el
+        más costoso (tamaño máximo).
+  \item Pocos empates en $\Delta\Phi$ / $\varphi_{\text{local}}$: el heap no puede
+        reutilizar evaluaciones previas.
+\end{itemize}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\subsection{Comparación con alternativas}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\subsubsection*{Frente a la búsqueda exhaustiva}
+
+\begin{table}[H]
+  \centering
+  \caption{Comparación de complejidad y evaluaciones concretas para distintos $(n, k)$.
+           Tiempos estimados en hardware de escritorio (Python, numpy).}
+  \label{tab:comparacion_exhaustiva}
+  \begin{tabular}{ccrrr}
+    \toprule
+    $n$ & $k$ & \textbf{Exhaustiva} (EMDs) & \textbf{KQNodes C4} (ops) & \textbf{KGeoMIP E4} (ops) \\
+    \midrule
+    8  & 3 & $966 \times 8 = 7\,728$     & $\leq 9 \times 8^3 \times 8 \approx 4\,608$    & $\leq 8 \times 64 \times 2^8 \approx 131\,072$ \\
+    8  & 3 & $\sim 2\text{ s}$            & $\sim 0.01\text{ s}$                            & $\sim 0.05\text{ s}$ \\[3pt]
+    10 & 4 & $145\,750 \times 10$         & $\leq 7 \times 10^3 \times 10 = 700\,000$       & $\leq 6 \times 100 \times 2^{10} \approx 614\,400$ \\
+    10 & 4 & \textit{inviable ($>$1 min)} & $\sim 0.1\text{ s}$                             & $\sim 0.5\text{ s}$ \\[3pt]
+    20 & 3 & $\sim 580 \times 10^6$       & $\leq 9 \times 20^3 \times 20 = 720\,000$       & $\leq 4 \times 400 \times 2^{20} \approx 1.7 \times 10^9$ \\
+    20 & 3 & \textit{semanas}             & $\sim 1\text{ s}$                               & $\sim 30\text{ s}$ \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsubsection*{Frente a las estrategias originales de bipartición}
+
+\begin{table}[H]
+  \centering
+  \caption{Comparación entre las extensiones k-particiones y sus anclas de bipartición.}
+  \label{tab:comparacion_biparticion}
+  \begin{tabular}{lll}
+    \toprule
+    \textbf{Algoritmo} & \textbf{Complejidad temporal} & \textbf{Complejidad espacial} \\
+    \midrule
+    GeoMIP (k=2)        & $\mathcal{O}(D \cdot 2^D)$         & $\mathcal{O}(2^D \cdot D)$ \\
+    KGeoMIP E4 (k$>$2)  & $\mathcal{O}(k \cdot D^2 \cdot 2^D)$ & $\mathcal{O}(2^D \cdot D)$ \\
+    Overhead KGeoMIP    & factor $k \cdot D$ sobre GeoMIP    & igual \\[3pt]
+    QNodes (k=2)        & $\mathcal{O}(D^3 \cdot N)$         & $\mathcal{O}(N \cdot 2^D)$ \\
+    KQNodes C4 (k$>$2)  & $\mathcal{O}(k \cdot D^3 \cdot N)$ & $\mathcal{O}(N \cdot 2^D)$ \\
+    Overhead KQNodes    & factor $k$ sobre QNodes            & igual \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+El overhead de extender a k-particiones es \textbf{lineal en $k$} para KQNodes y
+\textbf{lineal en $k \cdot D$} para KGeoMIP, frente al crecimiento superexponencial
+$S(n,k) \sim k^n / k!$ de la búsqueda exhaustiva. Para $k = 5$ y $D = 20$, esto
+representa un factor de reducción superior a $10^8$ evaluaciones.
+
+\subsubsection*{Comparación entre KGeoMIP y KQNodes}
+
+Ninguna de las dos estrategias domina a la otra en todas las dimensiones:
+
+\begin{itemize}
+  \item \textbf{KQNodes es preferible} cuando $D$ es moderado ($D \leq 15$) y
+        $N$ es pequeño: la complejidad $\mathcal{O}(k \cdot D^3 \cdot N)$ crece solo
+        polinomialmente con $D$, sin el factor exponencial $2^D$.
+
+  \item \textbf{KGeoMIP es preferible} cuando $D$ es grande ($D > 15$) pero el
+        umbral de enumeración permite modos exactos: la tabla $T$ ya construida por
+        GeoMIP se reutiliza sin coste adicional, y $S$ se construye una sola vez
+        para todos los $k$ del barrido.
+
+  \item En \textbf{memoria}, ambas tienen el mismo orden $\mathcal{O}(N \cdot 2^D)$
+        o $\mathcal{O}(2^D \cdot D)$ — el cuello de botella para $D > 22$ en ambos casos.
+\end{itemize}
