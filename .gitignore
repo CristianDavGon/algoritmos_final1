@@ -76,12 +76,12 @@ venv.bak/
 # Package managers
 # ============================================================
 # UV lock files in subdirectories (only root uv.lock is tracked)
-code/GeoMIP/uv.lock
-code/QNodes/uv.lock
+GeoMIP/uv.lock
+QNodes/uv.lock
 
 # pyproject.toml in subdirectories (only root is tracked)
-code/GeoMIP/pyproject.toml
-code/QNodes/pyproject.toml
+GeoMIP/pyproject.toml
+QNodes/pyproject.toml
 
 # PDM
 .pdm.toml
@@ -116,10 +116,12 @@ pyphi.log
 # ============================================================
 # Large samples (22 and 25 nodes — too heavy for remote)
 # ============================================================
-code/GeoMIP/data/samples/N22A.csv
-code/GeoMIP/data/samples/N25A.csv
-code/QNodes/src/.samples/N22A.csv
-code/QNodes/src/.samples/N25A.csv
+GeoMIP/data/samples/N20A.csv
+GeoMIP/data/samples/N22A.csv
+GeoMIP/data/samples/N25A.csv
+QNodes/src/.samples/N20A.csv
+QNodes/src/.samples/N22A.csv
+QNodes/src/.samples/N25A.csv
 
 # ============================================================
 # Google Drive / cloud sync

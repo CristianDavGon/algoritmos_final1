@@ -1,178 +1,262 @@
-# Proyecto V03 FINAL — MIP / IIT k-particiones
+# Proyecto V03 Final - MIP / IIT k-particiones
 
-Dos implementaciones de la **Minimum Information Partition (MIP)** en el marco de IIT 4.0,
-extendidas para k-particiones (k ∈ {2, 3, 4, 5}):
+Implementaciones experimentales para calcular particiones de minima informacion
+(MIP) en el marco de IIT, con dos familias de algoritmos:
 
-| Módulo | Estrategia | Estado |
-|--------|-----------|--------|
-| `QNodes/` | Queyranne submodular O(D³·N) | ✅ Base funcional |
-| `GeoMIP/` | Geométrico-topológico (Hamming) | ✅ Base funcional |
+| Modulo | Archivo de entrada | Enfoque | Salida principal |
+| --- | --- | --- | --- |
+| `QNodes` | `QNodes/exec.py` | Biparticion con Queyranne y oracle lazy | `QNodes/results/qnodes/` |
+| `KQNodes` | `QNodes/exec_kqnodes.py` | Extension greedy de QNodes a k-particiones | `QNodes/results/kqnodes/` |
+| `GeoMIP` | `GeoMIP/exec.py` | Biparticion geometrica sobre hipercubo de Hamming | `GeoMIP/results/geomip/` |
+| `KGeoMIP` | `GeoMIP/exec_kgeomip.py` | Extension divisiva E4 / aglomerativa a k-particiones | `GeoMIP/results/kgeomip/` |
 
----
+El proyecto tambien incluye una suite de pruebas para comparar resultados contra
+PyPhi y contra busqueda exhaustiva en redes pequenas.
 
 ## Requisitos
 
-- Python 3.11+ con **`uv`** instalado
-- Windows 10 / Linux (Ubuntu)
+- Python `>=3.12`
+- `uv` para sincronizar dependencias
+- Windows, Linux o macOS con suficiente memoria para cargar las TPM grandes
+
+Dependencias principales declaradas en `pyproject.toml`:
+
+- `numpy`, `pandas`, `scipy`
+- `pyphi`
+- `openpyxl`
+- `pyinstrument`
+- `colorama`
+
+## Instalacion
+
+Desde la raiz del repositorio:
 
 ```bash
 pip install uv
+uv sync
 ```
 
----
+El archivo `pyphi_config.yml` desactiva el mensaje de bienvenida de PyPhi.
 
-## Estructura del proyecto
+## Estructura
 
+```text
+algoritmos_final1/
+|-- data/
+|   `-- DatosPruebas2026_1.xlsx      # Excel canonico de casos alcance/mecanismo
+|-- QNodes/
+|   |-- exec.py                      # QNodes, k=2
+|   |-- exec_kqnodes.py              # KQNodes, k>=1
+|   `-- src/
+|       |-- .samples/                # TPMs usadas por QNodes
+|       |-- main.py
+|       |-- main_kqnodes.py
+|       `-- strategies/
+|-- GeoMIP/
+|   |-- exec.py                      # GeoMIP, k=2
+|   |-- exec_kgeomip.py              # KGeoMIP, k>=1
+|   |-- data/samples/                # TPMs usadas por GeoMIP
+|   `-- src/
+|       |-- main.py
+|       |-- main_kgeomip.py
+|       `-- controllers/strategies/
+|-- tests/
+|   |-- core/                        # Runner generico de benchmarks
+|   |-- adapters/                    # Adaptadores QNodes, GeoMIP, PyPhi, brute force
+|   |-- suites/                      # Pruebas por familia
+|   `-- results/                     # Reportes generados
+|-- pyproject.toml
+`-- uv.lock
 ```
-Proyecto V03 FINAL/
-├── data/
-│   └── DatosPruebas2026_1.xlsx   ← dataset canónico (N=5,8,10,...)
-├── QNodes/
-│   ├── exec.py                   ← punto de entrada bipartición
-│   ├── src/
-│   │   ├── .samples/N8A.csv      ← TPM red N=8
-│   │   └── strategies/q_nodes.py ← algoritmo Queyranne
-│   └── results/                  ← CSVs de salida (se crean al ejecutar)
-├── GeoMIP/
-│   ├── exec.py                   ← punto de entrada bipartición
-│   ├── data/samples/N8A.csv      ← TPM red N=8
-│   └── results/                  ← CSVs de salida (se crean al ejecutar)
-└── context/
-    └── sdd-2.md                  ← hoja de ruta del desarrollo
-```
 
----
+## Datos de entrada
 
-## Ejecución y validación
+El Excel `data/DatosPruebas2026_1.xlsx` contiene los pares
+`Alcance` / `Mecanismo` en columnas B:C. La longitud del estado inicial define
+`N` y selecciona la hoja del Excel:
+
+| N | Hoja |
+| --- | --- |
+| 5 | 1 |
+| 8 | 2 |
+| 10 | 3 |
+| 15 | 4 |
+| 20 | 5 |
+| 22 | 6 |
+| 25 | 7 |
+
+Las TPMs se nombran como `N{n}{pagina}.csv`, por ejemplo `N8A.csv`.
+
+- QNodes busca muestras en `QNodes/src/.samples/`.
+- GeoMIP busca muestras en `GeoMIP/data/samples/` y, como respaldo, en rutas
+  `.samples`.
+- Las muestras grandes `N20A.csv`, `N22A.csv` y `N25A.csv` estan ignoradas por
+  git por su tamano, aunque pueden existir localmente.
+
+## Ejecucion de algoritmos
+
+Los scripts de entrada tienen constantes editables arriba del archivo:
+
+- `ESTADO`: cadena binaria. Su longitud determina `N`.
+- `MUESTRA`: pagina de red, normalmente `A` o `B`.
+- `K`: numero de partes para los algoritmos k-particion.
+- `CRITERIO` o `VARIANTE`: heuristica usada por la extension k.
 
 ### QNodes
 
 ```bash
 cd QNodes
-uv sync
-uv run exec.py
+uv run python exec.py
 ```
 
-**Qué hace:**
-1. Lee las pruebas de `data/DatosPruebas2026_1.xlsx` hoja `8A-Elementos`.
-2. Para cada fila (Alcance en col B, Mecanismo en col C) ejecuta QNodes sobre `N8A.csv`.
-3. Guarda resultados en **`QNodes/results/resultados_N8A.csv`**.
+Por defecto ejecuta QNodes sobre todas las filas del Excel para el `N` indicado
+por `ESTADO` y guarda:
 
-**Criterio de validación — ejecución correcta:**
-- El archivo `QNodes/results/resultados_N8A.csv` existe al terminar.
-- Las columnas del CSV son:
+```text
+QNodes/results/qnodes/resultado__N{n}_{MUESTRA}.csv
+QNodes/results/qnodes/resultado__N{n}_{MUESTRA}.md
+```
 
-| Columna | Descripción |
-|---------|-------------|
-| `Prueba` | Número de prueba (1-N) |
-| `Alcance` | Letras del purview, ej. `ABCDEFGH` |
-| `Mecanismo` | Letras del mecanismo, ej. `ABCDEFG` |
-| `Partición` | Texto de la bipartición óptima |
-| `Pérdida (φ)` | Valor φ mínimo (float) |
-| `Tiempo (s)` | Tiempo de ejecución en segundos |
+### KQNodes
 
-**Valores esperados para las primeras pruebas de N=8:**
+```bash
+cd QNodes
+uv run python exec_kqnodes.py
+```
 
-| Prueba | Alcance | Mecanismo | φ esperado |
-|--------|---------|-----------|------------|
-| 1 | ABCDEFGH | ABCDEFGH | 0.5 |
-| 2 | ABCDEFGH | ABCDEFG | verificar |
-| 3 | ABCDEFGH | BCDEFGH | verificar |
+Usa `K` y `CRITERIO` desde `exec_kqnodes.py`.
 
-> Prueba 1 ya verificada: φ = 0.5 ✓
+- `CRITERIO="C4"`: corte marginal minimo.
+- `CRITERIO="C1"`: bloque de tamano maximo.
 
----
+Salida:
+
+```text
+QNodes/results/kqnodes/resultado__N{n}_{MUESTRA}_{K}.csv
+QNodes/results/kqnodes/resultado__N{n}_{MUESTRA}_{K}.md
+```
 
 ### GeoMIP
 
 ```bash
 cd GeoMIP
-uv sync
-uv run exec.py
+uv run python exec.py
 ```
 
-> **Windows:** GeoMIP usa `multiprocessing`. Ejecutar desde PowerShell o CMD directamente
-> (no desde el REPL interactivo de Python), o agregar el flag si hay problemas:
-> `uv run --no-isolation exec.py`
+Para redes `N <= 20` corre en el proceso principal. Para redes mayores usa
+`multiprocessing.Pool` con timeout por prueba.
 
-**Qué hace:**
-1. Lee las pruebas de `data/DatosPruebas2026_1.xlsx` hoja `8A-Elementos`.
-2. Para cada prueba lanza un subproceso con timeout de 1 hora.
-3. Guarda resultados en **`GeoMIP/results/resultados_N8A.csv`**.
+Salida por defecto:
 
-**CSV generado — mismas columnas que QNodes:**
+```text
+GeoMIP/results/geomip/resultados_N{n}{MUESTRA}.csv
+GeoMIP/results/geomip/resultados_N{n}{MUESTRA}.md
+```
 
-| Columna | Descripción |
-|---------|-------------|
-| `Prueba` | Número de prueba |
-| `Alcance` | Letras del purview |
-| `Mecanismo` | Letras del mecanismo |
-| `Partición` | Texto de la bipartición óptima |
-| `Pérdida (φ)` | Valor φ mínimo |
-| `Tiempo (s)` | Tiempo de ejecución en segundos |
+GeoMIP tambien acepta variables de entorno:
 
----
+| Variable | Uso | Valor por defecto |
+| --- | --- | --- |
+| `GEOMIP_INPUT_XLSX` | Excel de pruebas | `data/DatosPruebas2026_1.xlsx` |
+| `GEOMIP_OUTPUT_CSV` | Ruta CSV de salida | `GeoMIP/results/geomip/resultados_N{n}{MUESTRA}.csv` |
+| `GEOMIP_ESTADO_INICIO` | Estado si no se pasa por codigo | `1000000000000000000000000` |
+| `GEOMIP_SAMPLES_DIR` | Directorio alternativo de TPMs | autodetectado |
 
-## Validación cruzada (Fase 0 ✓)
+Ejemplo en PowerShell:
 
-Para confirmar que todo funciona correctamente, verificar:
-
-1. **Archivos generados:**
-   ```
-   QNodes/results/resultados_N8A.csv   ← debe existir con filas de datos
-   GeoMIP/results/resultados_N8A.csv   ← debe existir con filas de datos
-   ```
-
-2. **φ no negativo:** ninguna fila en `Pérdida (φ)` debe tener valores negativos.
-
-3. **Filas sin error:** la columna `Partición` no debe estar vacía en las primeras pruebas
-   (las primeras filas del Excel son las más simples — si fallan, hay un bug).
-
-4. **Consistencia Prueba 1:** ambos módulos deben dar el mismo φ para la misma prueba
-   (bipartición óptima puede diferir en representación pero φ debe ser igual).
-
----
-
-## Variables de entorno (opcional)
-
-Permiten sobreescribir rutas sin editar código:
-
-| Variable | Módulo | Por defecto |
-|----------|--------|-------------|
-| `GEOMIP_INPUT_XLSX` | GeoMIP | `data/DatosPruebas2026_1.xlsx` |
-| `GEOMIP_OUTPUT_CSV` | GeoMIP | `GeoMIP/results/resultados_N8A.csv` |
-| `GEOMIP_ESTADO_INICIO` | GeoMIP | `10000000` (N=8) |
-
-Ejemplo PowerShell:
 ```powershell
-$env:GEOMIP_ESTADO_INICIO = "10000"   # cambiar a N=5
+$env:GEOMIP_ESTADO_INICIO = "10000000"
 cd GeoMIP
-uv run exec.py
+uv run python exec.py
 ```
 
----
+### KGeoMIP
 
-## Cambiar la red de prueba
-
-Edita el `estado_inicio` en `QNodes/src/main.py` → función `iniciar()`:
-
-```python
-estado_inicio = "10000"      # N=5 — más rápido para desarrollo
-estado_inicio = "10000000"   # N=8 — canónico
+```bash
+cd GeoMIP
+uv run python exec_kgeomip.py
 ```
 
-Para GeoMIP usar la variable de entorno o editar `GeoMIP/src/main.py` → `iniciar()`.
+Usa `K` y `VARIANTE` desde `exec_kgeomip.py`.
 
----
+- `VARIANTE="E4"`: refinamiento divisivo recomendado.
+- `VARIANTE="A"`: baseline aglomerativo.
 
-## Hoja de ruta del desarrollo
+Salida:
 
-Ver [`context/sdd-2.md`](context/sdd-2.md) para el plan completo de fases.
+```text
+GeoMIP/results/kgeomip/resultado__N{n}_{MUESTRA}_{K}.csv
+GeoMIP/results/kgeomip/resultado__N{n}_{MUESTRA}_{K}.md
+```
 
-| Fase | Objetivo | Estado |
-|------|----------|--------|
-| 0 | Base funcional — ambos módulos corren y generan CSV | ✅ Completada |
-| 1 | KQNodes — Queyranne extendido a k particiones | 🔲 Pendiente |
-| 2 | KGeoMIP — Geométrico extendido a k particiones | 🔲 Pendiente |
-| 3 | Experimentación — comparativa φ vs k en N=8 | 🔲 Pendiente |
-| 4 | Documentación — manuales LaTeX técnico y usuario | 🔲 Pendiente |
+## Formato de resultados
+
+Los CSV de biparticion incluyen:
+
+| Columna | Significado |
+| --- | --- |
+| `Prueba` | Numero de caso tomado del Excel |
+| `Alcance` | Alcance en letras |
+| `Mecanismo` | Mecanismo en letras |
+| `Particion` | Particion encontrada |
+| `Perdida (phi)` | Valor de perdida / phi |
+| `Tiempo (s)` | Tiempo de ejecucion |
+
+Los CSV de k-particion agregan:
+
+| Columna | Significado |
+| --- | --- |
+| `k` | Numero de partes solicitado |
+| `Criterio` | Criterio o variante usada |
+
+Nota: en los archivos generados, las columnas con acentos y el simbolo phi se
+escriben en UTF-8.
+
+## Benchmarks y pruebas
+
+El runner generico ejecuta un algoritmo contra PyPhi o brute force:
+
+```bash
+uv run python tests/core/run_benchmark.py --algo qnodes --estado 10000 --pagina A
+uv run python tests/core/run_benchmark.py --algo geomip --estado 10000 --pagina A
+uv run python tests/core/run_benchmark.py --algo qnodes --estado 10000 --pagina A --reference bruteforce
+uv run python tests/core/run_benchmark.py --algo geomip --estado 10000 --pagina A --n-tests 5
+```
+
+Los reportes se guardan en:
+
+```text
+tests/results/{algoritmo}/vs_{referencia}/
+```
+
+Tambien existe un barrido de estados validos:
+
+```bash
+uv run python tests/run_all_states.py --dry-run
+uv run python tests/run_all_states.py --algo qnodes --reference pyphi --n-tests 5
+```
+
+Importante: QNodes y GeoMIP usan ambos un paquete raiz llamado `src`. Por eso,
+las pruebas de cada familia deben ejecutarse en procesos separados para evitar
+sombras de importacion.
+
+Ejemplos seguros:
+
+```bash
+uv run python -m pytest tests/suites/qnodes/test_qnodes_vs_pyphi.py -v -s
+uv run python -m pytest tests/suites/geomip/test_geomip_vs_pyphi.py -v -s
+uv run python -m pytest tests/suites/kgeomip/test_kgeomip.py -v -s
+```
+
+## Notas de implementacion
+
+- `QNodes` implementa Queyranne para minimizar una funcion simetrica con
+  evaluaciones lazy y cacheadas.
+- `KQNodes` parte de QNodes y divide bloques de forma greedy para alcanzar
+  `k` partes.
+- `GeoMIP` construye una tabla de costos sobre niveles de distancia Hamming y
+  valida candidatos con EMD real.
+- `KGeoMIP` ancla `k=2` en GeoMIP, reutiliza caches por subsistema y para
+  `k>=3` usa refinamiento divisivo E4 o la variante aglomerativa `A`.
+- Los scripts batch leen todas las pruebas disponibles en el Excel para el `N`
+  seleccionado, por lo que redes grandes pueden tardar bastante.
