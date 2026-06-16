@@ -1,3 +1,22 @@
+"""
+Orquestación batch de KQNodes: lectura de Excel, ejecución y exportación CSV+MD.
+
+Módulo de ejecución de KQNodes (extensión k-particiones submodular). Lee el
+archivo de pruebas ``DatosPruebas2026_1.xlsx``, convierte letras a vectores
+binarios y ejecuta ``KQNodes.aplicar_estrategia`` con cada combinación de k
+y criterio. Los resultados incluyen columnas adicionales (``k``, ``Criterio``)
+respecto al formato base de bipartición.
+
+Ejecutar a través de ``exec_kqnodes.py`` desde ``code/QNodes/``.
+
+Typical usage example::
+
+    from src.main_kqnodes import iniciar_kqnodes
+    iniciar_kqnodes(estado="10000000", k=3, criterio="C4")
+"""
+
+from __future__ import annotations
+
 import csv
 from pathlib import Path
 
@@ -13,8 +32,9 @@ from src.strategies.kqnodes import KQNodes
 RESULTS_DIR = Path(__file__).resolve().parents[1] / "results" / "kqnodes"
 
 _N_A_SHEET: dict[int, int] = {5: 1, 8: 2, 10: 3, 15: 4, 20: 5, 22: 6, 25: 7}
+ABECEDARIO: str = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
-_CAMPOS_CSV = [
+_CAMPOS_CSV: list[str] = [
     "Prueba", "Alcance", "Mecanismo",
     "k", "Criterio",
     "Partición", "Pérdida (φ)", "Tiempo (s)",
@@ -22,7 +42,16 @@ _CAMPOS_CSV = [
 
 
 def _letras_a_binario(texto: str, n_bits: int, posiciones: str) -> str:
-    """'ABCDFG' → '11011100000...' (posición A=0, B=1, ...)."""
+    """Convierte letras de nodos a vector binario de longitud ``n_bits``.
+
+    Args:
+        texto (str): Letras del alcance o mecanismo (p. ej. ``"ABC"``).
+        n_bits (int): Longitud del vector binario (= número de nodos n).
+        posiciones (str): Cadena de caracteres válidos de longitud n.
+
+    Returns:
+        str: Cadena binaria de longitud ``n_bits``.
+    """
     bits = ["0"] * n_bits
     for letra in str(texto).upper():
         if letra in posiciones:
@@ -30,8 +59,19 @@ def _letras_a_binario(texto: str, n_bits: int, posiciones: str) -> str:
     return "".join(bits)
 
 
-def _leer_pruebas_excel(ruta_excel: Path, n: int) -> list[tuple[str, str]]:
-    """Lee todas las filas de alcance/mecanismo de la hoja correspondiente a n."""
+def _leer_pruebas_excel(
+    ruta_excel: Path, n: int
+) -> list[tuple[str, str]]:
+    """Lee todas las filas de alcance/mecanismo de la hoja correspondiente a n.
+
+    Args:
+        ruta_excel (Path): Ruta al archivo ``DatosPruebas2026_1.xlsx``.
+        n (int): Tamaño de la red; determina la hoja del Excel.
+
+    Returns:
+        list[tuple[str, str]]: Lista de pares ``(alcance, mecanismo)``.
+            Retorna lista vacía si hay error de lectura.
+    """
     sheet_idx = _N_A_SHEET.get(n, 2)
     try:
         df = pd.read_excel(
@@ -47,7 +87,10 @@ def _leer_pruebas_excel(ruta_excel: Path, n: int) -> list[tuple[str, str]]:
         return []
 
     df = df.dropna(subset=["alcance", "mecanismo"])
-    return [(str(row.alcance).strip(), str(row.mecanismo).strip()) for _, row in df.iterrows()]
+    return [
+        (str(row.alcance).strip(), str(row.mecanismo).strip())
+        for _, row in df.iterrows()
+    ]
 
 
 def ejecutar_desde_excel(
@@ -57,12 +100,22 @@ def ejecutar_desde_excel(
     k_valores: list[int],
     criterios: list[str],
 ) -> None:
-    """Ejecuta KQNodes sobre todas las pruebas del Excel con todos los k y criterios dados.
+    """Ejecuta KQNodes sobre todas las pruebas del Excel y exporta resultados.
 
-    Cada fila del Excel genera len(k_valores) × len(criterios) filas en el CSV de salida.
+    Genera ``len(k_valores) × len(criterios)`` filas por cada prueba del
+    Excel. Reutiliza la misma instancia de ``KQNodes`` para todas las
+    combinaciones.
+
+    Args:
+        ruta_excel (Path): Ruta al archivo ``DatosPruebas2026_1.xlsx``.
+        ruta_salida (Path): Ruta de salida del CSV de resultados.
+        estado_inicio (str): Estado inicial binario del sistema.
+        k_valores (list[int]): Valores de k a evaluar (k ∈ {2, 3, 4, 5}).
+        criterios (list[str]): Criterios de refinamiento (p. ej.
+            ``["C4", "C1"]``).
     """
     n = len(estado_inicio)
-    posiciones_n = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"[:n]
+    posiciones_n = ABECEDARIO[:n]
     condicion = "1" * n
     pruebas = _leer_pruebas_excel(ruta_excel, n)
 
@@ -76,14 +129,20 @@ def ejecutar_desde_excel(
 
     total_pruebas = len(pruebas)
     total_filas = total_pruebas * len(k_valores) * len(criterios)
-    print(f"n={n}: {total_pruebas} pruebas × {len(k_valores)} k × {len(criterios)} criterios = {total_filas} ejecuciones")
+    print(
+        f"n={n}: {total_pruebas} pruebas × {len(k_valores)} k × "
+        f"{len(criterios)} criterios = {total_filas} ejecuciones"
+    )
 
     resultados: list[dict] = []
 
     for i, (letras_alcance, letras_mecanismo) in enumerate(pruebas, start=1):
         alcance = _letras_a_binario(letras_alcance, n, posiciones_n)
         mecanismo = _letras_a_binario(letras_mecanismo, n, posiciones_n)
-        print(f"  Prueba {i:>3}/{total_pruebas} — Alc: {letras_alcance:<8} Mec: {letras_mecanismo}")
+        print(
+            f"  Prueba {i:>3}/{total_pruebas} — "
+            f"Alc: {letras_alcance:<8} Mec: {letras_mecanismo}"
+        )
 
         for k in k_valores:
             for criterio in criterios:
@@ -121,7 +180,9 @@ def ejecutar_desde_excel(
         writer.writeheader()
         writer.writerows(resultados)
     print(f"  CSV: {ruta_salida} ({len(resultados)} filas)")
-    ruta_md = guardar_markdown(resultados, ruta_salida.with_suffix(".md"), "KQNodes", estado_inicio)
+    ruta_md = guardar_markdown(
+        resultados, ruta_salida.with_suffix(".md"), "KQNodes", estado_inicio
+    )
     print(f"  MD:  {ruta_md}")
 
 
@@ -130,12 +191,13 @@ def iniciar_kqnodes(
     k: int,
     criterio: str,
 ) -> None:
-    """Punto de entrada: procesa DatosPruebas2026_1.xlsx para el estado, k y criterio dados.
+    """Punto de entrada: procesa el Excel de pruebas para el estado, k y criterio.
 
     Args:
-        estado: String binario que define el estado inicial s(t) (ej. "10000000" -> n=8).
-        k: Número de partes de la k-partición.
-        criterio: Criterio de refinamiento ("C4" = corte marginal mínimo, "C1" = tamaño máximo).
+        estado (str): Estado inicial binario (p. ej. ``"10000000"`` → n=8).
+        k (int): Número de partes de la k-partición (k ∈ {2, 3, 4, 5}).
+        criterio (str): Criterio de refinamiento (``"C4"`` = corte marginal
+            mínimo, ``"C1"`` = tamaño máximo).
     """
     project_root = Path(__file__).resolve().parents[2]
     ruta_excel = project_root / "data" / "DatosPruebas2026_1.xlsx"

@@ -1,3 +1,27 @@
+"""
+Reporter: generación de reportes Markdown para resultados de QNodes y KQNodes.
+
+Módulo auxiliar de QNodes. Proporciona ``guardar_markdown`` para exportar
+resultados de bipartición (QNodes) o k-partición (KQNodes) a un archivo
+Markdown con resumen ejecutivo, tabla de resultados y detalle por caso.
+También incluye utilidades de formateo de particiones en los formatos curvos
+(⎛…⎞) y pipe (|…|).
+
+Typical usage example::
+
+    from pathlib import Path
+    from src.reporter import guardar_markdown
+
+    ruta_md = guardar_markdown(
+        resultados=[{"Prueba": 1, "Alcance": "AB", "Mecanismo": "AB",
+                     "Partición": "...", "Pérdida (φ)": 0.25,
+                     "Tiempo (s)": 1.2}],
+        ruta_md=Path("results/qnodes/resultado__N8_A.md"),
+        algoritmo="QNodes",
+        estado_inicio="10000000",
+    )
+"""
+
 from __future__ import annotations
 
 import re

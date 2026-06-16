@@ -1,21 +1,74 @@
-from src.funcs.base import ABECEDARY, LOWER_ABECEDARY
+"""Funciones de formateo visual de biparticiones para GeoMIP.
+
+Convierte la representación interna de una bipartición (mecanismo +
+purview para cada parte) en cadenas de texto listas para mostrar en
+consola o guardar en registros. Se usan caracteres Unicode de corchetes
+extendidos (``⎛ ⎝ ⎞ ⎠``) para representar la fracción estándar de IIT.
+
+Typical usage example::
+
+    from src.funcs.format import fmt_biparticion, fmt_biparte_q
+
+    texto = fmt_biparticion(
+        parte_uno=([0, 2], [1]),
+        parte_dos=([1], [0, 2]),
+    )
+    print(texto)
+"""
+
+from __future__ import annotations
+
 from src.constants.base import VOID_STR
+from src.funcs.base import ABECEDARY, LOWER_ABECEDARY
 
 
 def fmt_biparticion(
     parte_uno: list[tuple[int, ...], tuple[int, ...]],
     parte_dos: list[tuple[int, ...], tuple[int, ...]],
 ) -> str:
-    # Extraer mecanismo y purview de cada parte
+    """Formatea una bipartición de dos partes en notación de fracción.
+
+    Cada parte contiene un mecanismo (letras minúsculas, tiempo ``t``)
+    y un purview (letras mayúsculas, tiempo ``t+1``). El resultado es
+    un bloque de dos líneas con la forma::
+
+        ⎛ purview_prim ⎞⎛ purview_dual ⎞
+        ⎝ mech_prim    ⎠⎝ mech_dual    ⎠
+
+    Args:
+        parte_uno: Par ``(mecanismo, purview)`` de la parte primaria.
+            Cada elemento es una secuencia de índices de nodos.
+        parte_dos: Par ``(mecanismo, purview)`` de la parte dual.
+
+    Returns:
+        Cadena de dos líneas con la bipartición formateada.
+
+    Example::
+
+        print(fmt_biparticion(([0], [1, 2]), ([1, 2], [0])))
+        # ⎛  B,C  ⎞⎛  A    ⎞
+        # ⎝  a    ⎠⎝  b,c  ⎠
+    """
     mech_p, pur_p = parte_uno
     mech_d, purv_d = parte_dos
 
-    # Convertir índices a letras o símbolo vacío si no hay elementos
-    purv_prim = ",".join(ABECEDARY[j] for j in pur_p) if pur_p else VOID_STR
-    mech_prim = ",".join(LOWER_ABECEDARY[i] for i in mech_p) if mech_p else VOID_STR
-
-    purv_dual = ",".join(ABECEDARY[i] for i in purv_d) if purv_d else VOID_STR
-    mech_dual = ",".join(LOWER_ABECEDARY[j] for j in mech_d) if mech_d else VOID_STR
+    # Convertir índices a letras o símbolo vacío
+    purv_prim = (
+        ",".join(ABECEDARY[j] for j in pur_p) if pur_p else VOID_STR
+    )
+    mech_prim = (
+        ",".join(LOWER_ABECEDARY[i] for i in mech_p)
+        if mech_p
+        else VOID_STR
+    )
+    purv_dual = (
+        ",".join(ABECEDARY[i] for i in purv_d) if purv_d else VOID_STR
+    )
+    mech_dual = (
+        ",".join(LOWER_ABECEDARY[j] for j in mech_d)
+        if mech_d
+        else VOID_STR
+    )
 
     width_prim = max(len(purv_prim), len(mech_prim)) + 2
     width_dual = max(len(purv_dual), len(mech_dual)) + 2
@@ -31,20 +84,71 @@ def fmt_biparte_q(
     dual: list[tuple[int, int]],
     to_sort: bool = True,
 ) -> str:
+    """Formatea una bipartición Q (pares tiempo-índice) en dos columnas.
+
+    Delega el formateo de cada parte a :func:`fmt_parte_q` y concatena
+    los resultados horizontalmente.
+
+    Args:
+        prim: Lista de pares ``(tiempo, índice)`` de la parte primaria.
+            ``tiempo == 1`` indica purview; ``tiempo == 0`` indica
+            mecanismo.
+        dual: Lista de pares ``(tiempo, índice)`` de la parte dual.
+        to_sort: Si es ``True`` ordena cada parte por índice antes de
+            formatear. Por defecto ``True``.
+
+    Returns:
+        Cadena de dos líneas con ambas partes lado a lado.
+
+    Example::
+
+        print(fmt_biparte_q([(1, 0), (0, 1)], [(1, 2)]))
+        # ⎛ A ⎞⎛ C ⎞
+        # ⎝ b ⎠⎝   ⎠
+    """
     top_prim, bottom_prim = fmt_parte_q(prim, to_sort)
     top_dual, bottom_dual = fmt_parte_q(dual, to_sort)
 
     return f"{top_prim}{top_dual}\n{bottom_prim}{bottom_dual}"
 
 
-def fmt_parte_q(parte: list[tuple[int, int]], to_sort: bool = True) -> tuple[str, str]:
+def fmt_parte_q(
+    parte: list[tuple[int, int]],
+    to_sort: bool = True,
+) -> tuple[str, str]:
+    """Formatea una sola parte Q como par ``(línea_superior, línea_inferior)``.
+
+    Separa los elementos de ``parte`` en purview (``tiempo == 1``,
+    letras mayúsculas) y mecanismo (``tiempo == 0``, letras minúsculas)
+    y los encuadra en corchetes extendidos Unicode.
+
+    Args:
+        parte: Lista de pares ``(tiempo, índice)`` donde ``tiempo``
+            vale ``1`` para purview y ``0`` para mecanismo.
+        to_sort: Si es ``True`` ordena por ``índice`` antes de
+            formatear.
+
+    Returns:
+        Par de cadenas ``(línea_superior, línea_inferior)`` con los
+        corchetes Unicode incluidos.
+
+    Example::
+
+        top, bottom = fmt_parte_q([(1, 0), (0, 2)])
+        # top    → "⎛ A ⎞"
+        # bottom → "⎝ c ⎠"
+    """
     if to_sort:
-        # Ordenar por índice #
+        # Ordenar elementos por índice de nodo
         parte.sort(key=lambda x: x[1])
 
-    purv, mech = [], []
+    purv: list[str] = []
+    mech: list[str] = []
     for time, idx in parte:
-        purv.append(ABECEDARY[idx]) if time else mech.append(LOWER_ABECEDARY[idx])
+        if time:
+            purv.append(ABECEDARY[idx])
+        else:
+            mech.append(LOWER_ABECEDARY[idx])
 
     str_purv = ",".join(purv) if purv else VOID_STR
     str_mech = ",".join(mech) if mech else VOID_STR

@@ -1,3 +1,28 @@
+"""
+System: Colección de NCubes con operaciones de subsistema para IIT 4.0 (QNodes).
+
+Módulo del modelo de dominio QNodes. Define ``System``, que agrupa los
+``NCube`` de todos los nodos de la TPM y expone las operaciones centrales
+del framework IIT 4.0: ``condicionar`` (condiciones de fondo), ``substraer``
+(generación de subsistemas) y ``bipartir`` (bipartición para cálculo de φ).
+La distribución marginal resultante alimenta directamente el cálculo de
+EMD-Effect en el contexto del algoritmo Queyranne/MAO.
+
+Typical usage example::
+
+    import numpy as np
+    from src.models.core.system import System
+
+    tpm = np.load("ruta/a/tpm.npy")
+    estado = np.array([1, 0, 0, 0, 0, 0, 0, 0], dtype=np.int8)
+    sistema = System(tpm, estado)
+    subsistema = sistema.condicionar(np.array([2, 3])).substraer(
+        np.array([0, 1]), np.array([0, 1])
+    )
+"""
+
+from __future__ import annotations
+
 import numpy as np
 from numpy.typing import NDArray
 
@@ -10,21 +35,57 @@ from src.models.enums.notation import Notation
 
 
 class System:
-    """
-    La clase sistema es la encargada de realizar las operaciones de condicionamiento, substracción para generación de subsistemas y obtención de las distribuciones marginales para realizar eficientemente el cálculo de la EMD en el Efecto.
+    """Colección de NCubes que representa el sistema completo en IIT 4.0.
 
-    Args:
-    ----
-        - `tpm` (np.ndarray): El la Matriz de Probabilidad de Transición, de la cuál por cada nodo se generará un n-cubo asociado para permitir rápida operación de los datos.
-        - `estado_inicial` (np.ndarray): Este asocia cada variable del sistema con un estado, activa o inactiva, de forma que permita al final seleccionar ciertos estados necesarios para el cálculo final de la EMD.
-        - `notation` Optional(str): Por defecto Little-Endian. Representa la notación usada para la indexación de los datos, leer la guía del proyecto para conocer más notaciones.
+    Gestiona los NCubes de todos los nodos derivados de la TPM y permite
+    aplicar condicionamiento, substracción y bipartición para el análisis de
+    irreductibilidad del sistema (SIA). Las instancias intermedias se crean
+    con ``System.__new__`` para evitar re-inicialización costosa.
+
+    Attributes:
+        estado_inicial (np.ndarray): Estado binario del sistema con shape
+            ``(n_nodos,)``.
+        ncubos (tuple[NCube, ...]): Tupla inmutable de NCubes activos. Cada
+            NCube es ``frozen=True``; no mutar sus atributos directamente.
+        memo (dict): Caché de biparticiones previas (clave: par de tuplas
+            alcance × mecanismo).
+
+    Example::
+
+        import numpy as np
+        from src.models.core.system import System
+
+        tpm = np.random.rand(8, 3)
+        estado = np.array([1, 0, 0], dtype=np.int8)
+        sistema = System(tpm, estado)
+        subsistema = sistema.condicionar(np.array([2], dtype=np.int8))
+        particion = subsistema.bipartir(
+            np.array([0], dtype=np.int8),
+            np.array([0, 1], dtype=np.int8),
+        )
     """
 
     def __init__(
         self,
         tpm: np.ndarray,
         estado_inicio: np.ndarray,
-    ):
+    ) -> None:
+        """Construye el sistema a partir de la TPM y el estado inicial.
+
+        Crea un ``NCube`` por cada nodo (columna de la TPM), reshapeando
+        la columna en un hipercubo de dimensiones ``(2,) * n_nodos`` según
+        la notación configurada en el singleton ``aplicacion``.
+
+        Args:
+            tpm (np.ndarray): Matriz de Probabilidad de Transición con shape
+                ``(2**n_nodos, n_nodos)`` en notación little-endian.
+            estado_inicio (np.ndarray): Estado inicial binario con shape
+                ``(n_nodos,)``.
+
+        Raises:
+            ValueError: Si ``estado_inicio.size`` no coincide con el número
+                de columnas de ``tpm``.
+        """
         num_nodos = self.validacion_inicial(tpm, estado_inicio)
         self.estado_inicial = estado_inicio
         notacion_llegada = (
@@ -38,105 +99,81 @@ class System:
                 dims=np.array(range(num_nodos), dtype=np.int8),
                 data=tpm[:, idx].reshape((BASE_TWO,) * num_nodos)
                 if notacion_llegada == Notation.LIL_ENDIAN.value
-                else tpm[idx, :][reindexar(num_nodos)].reshape((BASE_TWO,) * num_nodos),
+                else tpm[idx, :][reindexar(num_nodos)].reshape(
+                    (BASE_TWO,) * num_nodos
+                ),
             )
             for idx in range(num_nodos)
         )
         self.memo = {}
 
-    def validacion_inicial(self, tpm: np.ndarray, estado_inicio: np.ndarray):
+    def validacion_inicial(
+        self, tpm: np.ndarray, estado_inicio: np.ndarray
+    ) -> int:
+        """Valida compatibilidad entre TPM y estado inicial.
+
+        Args:
+            tpm (np.ndarray): Matriz de Probabilidad de Transición.
+            estado_inicio (np.ndarray): Estado inicial del sistema.
+
+        Returns:
+            int: Número de nodos (columnas de la TPM).
+
+        Raises:
+            ValueError: Si ``estado_inicio.size`` no coincide con
+                ``tpm.shape[COLS_IDX]``.
+        """
         if estado_inicio.size != (num_nodos := tpm.shape[COLS_IDX]):
             raise ValueError(ERROR_ESPACIOS_INCOMPATIBLES(num_nodos))
         return num_nodos
 
     @property
-    def indices_ncubos(self):
-        """
-        La TPM tiene asociados una cantidad n-ésima de n-cubos, es por esto que es necesario tenerlos indexados puesto representa el comportamiento de un nodo en todos sus posibles estados dentro de un espacio de probabilidad determinista o estocástica.
-        El método ofrece dinámicamente el valor del atributo en función al índice de cada n-cubo.
+    def indices_ncubos(self) -> NDArray[np.int8]:
+        """Índices de los NCubes activos en el sistema actual.
+
+        Retorna el arreglo de índices de los NCubes remanentes tras
+        condicionamiento, substracción o bipartición.
 
         Returns:
-        -------
-            - `np.array`: El listado con los índices con los n-cubos remanentes a la inicialización del sistema, condicionamiento para sistemas candidatos, generación de subsistemas y particiones.
+            NDArray[np.int8]: Arreglo con los índices de los NCubes activos.
         """
         return np.array([cube.indice for cube in self.ncubos], dtype=np.int8)
 
     @property
-    def dims_ncubos(self):
-        """
-        Retorna las dimensiones que se preserven en los n-cubos del sistema. No es un método aplicable tras generación de particiones puesto no necesariamente todos los n-cubos mantendrán las mismas dimensiones.
+    def dims_ncubos(self) -> NDArray[np.int8]:
+        """Dimensiones activas del primer NCube del sistema.
+
+        No aplicable tras bipartición porque los NCubes pueden tener
+        dimensiones heterogéneas.
 
         Returns:
-            - `np.ndarray`: El arreglo con las dimensiones únicas de los n-cubos del sistema a cualquier nivel, idealmente superior a una partición.
+            NDArray[np.int8]: Dimensiones del primer NCube, o arreglo vacío
+                si no hay NCubes.
         """
         return (
-            self.ncubos[INT_ZERO].dims if len(self.ncubos) > INT_ZERO else np.array([])
+            self.ncubos[INT_ZERO].dims
+            if len(self.ncubos) > INT_ZERO
+            else np.array([])
         )
 
-    def condicionar(self, indices: NDArray[np.int8]) -> "System":
-        """
-        A partir de un sistema origina, esta operación se aplica para todo n-cubo, también llamada como aplicar condiciones de fondo, hace que este se vea seleccionado el cubo en su totalidad, pero delimitando en las dimensiones o indices especificados para hacer selección según el estado inicial asociado.
-        Primeramente se intersecan los indices enviados con los actuales de cada n-cubo para evitar elementos inexistentes, luego las dimensiones intersecadas serán las que se definan para cada n-cubo.
+    def condicionar(self, indices: NDArray[np.int8]) -> System:
+        """Aplica condiciones de fondo al sistema descartando nodos condicionados.
+
+        Intersecta ``indices`` con los índices actuales de los NCubes para
+        evitar referencias inexistentes. Los NCubes cuyos índices coincidan
+        con la intersección se eliminan del sistema; los restantes son
+        condicionados en esas dimensiones según ``estado_inicial``.
 
         Args:
-        ----
-            - `indices` (NDArray[np.int8]): Dimensiones que idealmente están asociadas a cada n-cubo y harán selección según el usuario.
+            indices (NDArray[np.int8]): Índices de los nodos a condicionar.
 
         Returns:
-        -------
-            `System`: El sistema candidato con sus n-cubos condicionados a las variables indicadas y su valor binario específico.
-            Este sistema condicionado recibe el nombre de sistema candidato y servirá para procesos de substracción para generación de subsistemas.
+            System: Sistema candidato con NCubes condicionados. Los NCubes
+                retornados son nuevas instancias (``frozen=True``; no mutar).
 
-        Examples:
-        --------
-        >>> dimensiones = np.array([2])
-        >>> estados = np.array([1,0,0])
-        >>> sistema = System(tpm, estados)
-        System(indices=[0 1 2], sub_dims=[0 1 2])
-            Initial state: [1 0 0]
-            NCubes:
-                NCube(index=0):
-                    dims=[0 1 2]
-                    shape=(2, 2, 2)
-                    data=
-                        [[[0. 0.]
-                        [1. 1.]],
-                        [[1. 1.]
-                        [1. 1.]]]
-                NCube(index=1):
-                    dims=[0 1 2]
-                    shape=(2, 2, 2)
-                    data=
-                        [[[0. 0.]
-                        [0. 0.]],
-                        [[0. 1.]
-                        [0. 1.]]]
-                NCube(index=2):
-                    dims=[0 1 2]
-                    shape=(2, 2, 2)
-                    data=
-                        [[[0. 1.]
-                        [1. 0.]],
-                        [[0. 1.]
-                        [1. 0.]]]
-        >>> sistema.condicionar(dimensiones)
-        System(indices=[0 1], sub_dims=[0 1])
-            Initial state: [1 0 0]
-            NCubes:
-                NCube(index=0):
-                    dims=[0 1]
-                    shape=(2, 2)
-                    data=
-                        [[0. 0.]
-                        [1. 1.]]
-                NCube(index=1):
-                    dims=[0 1]
-                    shape=(2, 2)
-                    data=
-                        [[0. 0.]
-                        [0. 0.]]
+        Example::
 
-        Como se aprecia se hizo reducción en la dimensión más significativa y prevaleció las dimensiones donde C=0 (agrupamiento más externo, primera posición).
+            sistema_cand = sistema.condicionar(np.array([2, 3], dtype=np.int8))
         """
         indices_validos = np.intersect1d(self.indices_ncubos, indices)
         if not indices_validos.size:
@@ -155,70 +192,30 @@ class System:
         self,
         alcance_idx: NDArray[np.int8],
         mecanismo_dims: NDArray[np.int8],
-    ) -> "System":
-        """
-        Permite substraer una serie de elementos a partir de un sistema completo o sun sisteam candidato tanto en el futuro/alcance como el presente/mecanismo, logrando así la generación de un subsistema.
+    ) -> System:
+        """Genera un subsistema eliminando nodos del alcance y marginalizando.
+
+        Descarta los NCubes cuyos índices están en ``alcance_idx`` (futuro
+        excluido) y marginaliza los restantes sobre ``mecanismo_dims``
+        (presente excluido), produciendo el subsistema para bipartición.
 
         Args:
-        ----
-            - `alcance_dims` (NDArray[np.int8]): En este arreglo se encuentran las variables que van a ser eliminadas, puesto es el alcance/futuro significa que los cubos que pertenezcan a estos índices serán descartados.
-            - `mecanismo_dims` (NDArray[np.int8]): Acá preceden las dimensiones asociadas a cada n-cubo, donde para cada uno se aplicará la operación de agrupación por promedio, solapando múltiples caras del n-cubo.
+            alcance_idx (NDArray[np.int8]): Índices de nodos del alcance a
+                excluir del subsistema (eliminados del futuro/t+1).
+            mecanismo_dims (NDArray[np.int8]): Dimensiones del mecanismo a
+                marginalizar en los NCubes restantes (eliminadas del
+                presente/t).
 
         Returns:
-        -------
-            System: Este subsistema servirá para procesos posteriores de particionamiento.
+            System: Subsistema listo para bipartición. Los NCubes retornados
+                son nuevas instancias inmutables.
 
-        Examples:
-        --------
-        >>> alcances = np.array([0])
-        >>> mecanismos = np.array([2])
-        >>> mi_sistema
-        System(indices=[0 1 2], sub_dims=[0 1 2])
-            Initial state: [1 0 0]
-            NCubes:
-                NCube(index=0):
-                    dims=[0 1 2]
-                    shape=(2, 2, 2)
-                    data=
-                        [[[0. 0.]
-                        [1. 1.]],
-                        [[1. 1.]
-                        [1. 1.]]]
-                NCube(index=1):
-                    dims=[0 1 2]
-                    shape=(2, 2, 2)
-                    data=
-                        [[[0. 0.]
-                        [0. 0.]],
-                        [[0. 1.]
-                        [0. 1.]]]
-                NCube(index=2):
-                    dims=[0 1 2]
-                    shape=(2, 2, 2)
-                    data=
-                        [[[0. 1.]
-                        [1. 0.]],
-                        [[0. 1.]
-                        [1. 0.]]]
-        >>> mi_sistema.substraer(alcances, mecanismos)
-        System(indices=[1 2], sub_dims=[0 1])
-            Initial state: [1 0 0]
-            NCubes:
-                NCube(index=1):
-                    dims=[0 1]
-                    shape=(2, 2)
-                    data=
-                        [[0.  0.5]
-                        [0.  0.5]]
-                NCube(index=2):
-                    dims=[0 1]
-                    shape=(2, 2)
-                    data=
-                        [[0. 1.]
-                        [1. 0.]]
+        Example::
 
-        Los indices asociados a los literales o variables independiente al tiempo son `0:(A|a), 1:(B|b), 2:(C|c)`.
-        En el ejemplo se aprecia lo que puede representarse como que el sistema `V={A_abc,B_abc,C_abc}` sufrió una martinalización en `A in (t+1)`, dejando `B` y `C`, sobre los que se aplicó luego una marginalización en `c in (t)`.
+            subsistema = sistema.substraer(
+                np.array([0], dtype=np.int8),
+                np.array([2], dtype=np.int8),
+            )
         """
         futuros_validos = np.setdiff1d(self.indices_ncubos, alcance_idx)
         nuevo_sistema = System.__new__(System)
@@ -235,16 +232,33 @@ class System:
         self,
         alcance: NDArray[np.int8],
         mecanismo: NDArray[np.int8],
-    ) -> "System":
-        """
-        Es en este método donde generamos a partir de un subsistema, una bipartición.
+    ) -> System:
+        """Genera una bipartición del subsistema para el cálculo de φ.
+
+        Para cada NCube: si su índice está en ``alcance``, marginaliza las
+        dimensiones fuera de ``mecanismo`` (desconecta el futuro del
+        mecanismo excluido); en caso contrario, marginaliza sobre
+        ``mecanismo`` (desconecta el presente). Usa caché interna para
+        evitar recomputar la misma bipartición.
 
         Args:
-            alcance (NDArray[np.int8]): Variables futuras que idealmente hacen parte del subsistema, estas seleccionan un subconjunto dentro del mismo el cuál será marginalizado en las dimensiones excluídas.
-            mecanismo (NDArray[np.int8]): Acá está el conjunto de dimensiones primales dadas, donde marginalizarán todos los n-cubos cuyo índice no haga parte del alcance.
+            alcance (NDArray[np.int8]): Índices de nodos incluidos en el
+                alcance de la bipartición.
+            mecanismo (NDArray[np.int8]): Dimensiones del mecanismo de la
+                bipartición.
 
         Returns:
-            System: Se retorna una bipartición, acá es importante tener muy claro que puede o no haber pérdida con respecto al sub-sistema original y por ende, se analizará mediante una distancia métrica cono la EMD-Effect la diferencia entre las distribuciones marginales de estos dos "sistemas", apreciando si hay diferencia como una "pérdida" en la información respecto al sub-sistema original.
+            System: Bipartición del subsistema. La pérdida φ se obtiene
+                comparando su distribución marginal con la del subsistema
+                original mediante EMD-Effect.
+
+        Example::
+
+            biparticion = subsistema.bipartir(
+                np.array([0], dtype=np.int8),
+                np.array([0, 1], dtype=np.int8),
+            )
+            perdida = emd_efecto(subsistema, biparticion)
         """
         nuevo_sistema = System.__new__(System)
         nuevo_sistema.estado_inicial = self.estado_inicial
@@ -260,15 +274,18 @@ class System:
             )
 
         nuevo_sistema.ncubos = self.memo[clave]
-
         return nuevo_sistema
 
-    def distribucion_marginal(self):
-        """
-        Partiendo de idealmente un subsistema o una bipartición como entrada, se seleccionana los nodos/elementos cuando su estado es OFF o inactivo para cada uno de ellos (mediante la propiedad de las distribuciones marginales) esto nos permite calcular más eficientemente la EMD-Effect, logrando así determinar un coste para dar comparación entre idealmente, un sub-sistema y una bipartición. Hemos de aplicar una reversión en la selección del estado inicial puesto se está trabajando con el dataset original.
+    def distribucion_marginal(self) -> NDArray[np.float32]:
+        """Calcula la distribución marginal del sistema para EMD-Effect.
+
+        Para cada NCube activo, selecciona la probabilidad de transición
+        indexada por el estado inicial actual. Esta representación es la
+        requerida por ``emd_efecto`` en QNodes para medir la pérdida φ.
 
         Returns:
-            NDArray[np.float32]: Este arreglo contiene cada elemento/variable de forma ordenada y consecutiva seleccionado específicamente en la clave formada por el estado inicial.
+            NDArray[np.float32]: Arreglo de tamaño ``n_ncubos`` con la
+                probabilidad marginal por cada nodo en el estado inicial.
         """
         probabilidad: float
         distribucion = np.empty(self.indices_ncubos.size, dtype=np.float32)
@@ -282,6 +299,7 @@ class System:
         return distribucion
 
     def __str__(self) -> str:
+        """Representación legible con índices, dims, estado inicial y NCubes."""
         sub_dims = self.dims_ncubos
         cubos_info = [f"{c}" for c in self.ncubos]
         return (

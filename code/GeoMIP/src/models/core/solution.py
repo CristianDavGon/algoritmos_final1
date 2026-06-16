@@ -1,10 +1,37 @@
-from colorama import init, Fore, Style
-import pyttsx3
+"""
+Solution: Resultado de bipartición con visualización y voz para GeoMIP.
+
+Módulo del modelo de dominio GeoMIP. Define ``Solution``, que encapsula el
+resultado de un análisis de bipartición (valor φ, distribuciones, partición
+óptima) y proporciona salida visual colorizada en terminal (colorama) y
+anuncio por voz (pyttsx3) de forma opcional y no bloqueante.
+
+Typical usage example::
+
+    import numpy as np
+    from src.models.core.solution import Solution
+
+    solucion = Solution(
+        estrategia="GeometricSIA",
+        perdida=0.1234,
+        distribucion_subsistema=np.array([0.5, 0.5]),
+        distribucion_particion=np.array([0.6, 0.4]),
+        particion="⎛A⎞⎛B⎞\\n⎝a⎠⎝∅⎠",
+        tiempo_total=2.5,
+        hablar=False,
+    )
+    print(solucion)
+"""
+
+from __future__ import annotations
+
+from threading import Thread
+
+import numpy as np
+from colorama import Fore, Style, init
 from pyttsx3.engine import Engine
 from pyttsx3.voice import Voice
-import numpy as np
-from threading import Thread
-from typing import Optional
+import pyttsx3
 
 from src.constants.base import FLOAT_ZERO
 from src.models.base.application import aplicacion
@@ -12,85 +39,50 @@ from src.models.base.application import aplicacion
 # Iniciar colorama
 init()
 
+VELOCIDAD_HABLA: int = 150
+VOLUMEN_HABLA: float = 0.9
+ANCHO_DISPLAY: int = 50
+SEGUNDOS_HORA: int = 3600
+SEGUNDOS_MINUTO: int = 60
+LIMITE_VALORES_DISPLAY: int = 64
+
 
 class Solution:
-    """
-    Clase Solution para representar y visualizar soluciones del sistema IIT.
+    """Resultado de bipartición con visualización colorizada y síntesis de voz.
 
-    Esta clase maneja la representación, visualización y anunciación por voz de las soluciones
-    encontradas durante el análisis de Integrated Information Theory (IIT). Proporciona
-    funcionalidades para mostrar distribuciones de probabilidad, particiones del sistema
-    y el valor φ (phi|small phi) asociado a la pérdida de información.
-
-    Args:
-    ----
-        estrategia (str):
-            La estrategia utilizada para la resolución del problema.
-
-        perdida (float):
-            El valor φ que representa la pérdida de información en el sistema.
-            Este valor cuantifica la diferencia entre la distribución del subsistema
-            y la distribución de la partición.
-
-        distribucion_subsistema (np.ndarray):
-            Array que representa la distribución de probabilidad del subsistema completo.
-            Contiene las probabilidades de cada estado posible en el espacio del subsistema.
-
-        distribucion_particion (np.ndarray):
-            Array que representa la distribución de probabilidad de la partición.
-            Contiene las probabilidades de cada estado en el espacio de la partición
-            que minimiza la información integrada.
-
-        particion (str):
-            Representación en formato string de la mejor partición encontrada.
-            Utiliza notación matemática para mostrar la estructura de la partición.
-
-        hablar (bool, opcional):
-            Si es True, anuncia la solución encontrada usando síntesis de voz.
-            Por defecto es True.
-
-        voz (Optional[str], opcional):
-            Identificador específico de la voz a utilizar para la síntesis.
-            Si no se especifica, se busca automáticamente una voz en español.
+    Encapsula el valor φ (perdida), las distribuciones marginales del
+    subsistema y de la bipartición encontrada, junto con la representación
+    textual de la partición óptima. Al imprimir (``__str__``), genera una
+    salida colorizada en terminal mediante colorama y puede anunciar el
+    resultado mediante pyttsx3 en un hilo separado.
 
     Attributes:
-    ----------
-        perdida (float):
-            El valor φ de la solución.
+        estrategia (str): Nombre de la estrategia utilizada (p. ej.
+            ``"GeometricSIA"``).
+        perdida (float): Valor φ (small phi) que cuantifica la pérdida de
+            información integrada en la bipartición óptima.
+        distribucion_subsistema (np.ndarray): Distribución marginal del
+            subsistema original.
+        distribucion_particion (np.ndarray): Distribución marginal de la
+            bipartición óptima.
+        particion (str): Representación textual de la mejor bipartición
+            (literales alfanuméricos en numerador/denominador).
+        tiempo_ejecucion (float): Tiempo total del algoritmo en segundos.
+        id_voz (str | None): Identificador de voz pyttsx3 seleccionada.
+        hablar (bool): Si es ``True``, anuncia la solución por síntesis de
+            voz al imprimir.
 
-        distribucion_subsistema (np.ndarray):
-            La distribución de probabilidad del subsistema.
+    Example::
 
-        distribucion_particion (np.ndarray):
-            La distribución de probabilidad de la partición.
-
-        particion (str):
-            La representación de la mejor partición.
-
-        id_voz (Optional[str]):
-            El identificador de la voz seleccionada para la síntesis.
-
-    Examples:
-    --------
-    >>> # Crear una solución básica
-    >>> solucion = Solution(
-    ...     perdida=0.25,
-    ...     distribucion_subsistema=np.array([0.0, 1.0, 0.0, 0.0]),
-    ...     distribucion_particion=np.array([0.0, 0.75, 0.0, 0.25]),
-    ...     particion="⎛ A,C ⎞⎛ B ⎞
-    ...                ⎝a,b,c⎠⎝ ∅ ⎠"
-    ... )
-    >>> print(solucion)  # Muestra la solución formateada con colores
-
-    >>> # Crear una solución sin anuncio por voz
-    >>> solucion_silenciosa = Solution(
-    ...     perdida=0.25,
-    ...     distribucion_subsistema=np.array([0.0, 1.0, 0.0, 0.0]),
-    ...     distribucion_particion=np.array([0.0, 0.75, 0.0, 0.25]),
-    ...     particion="⎛ A,C ⎞⎛ B ⎞
-    ...                ⎝a,b,c⎠⎝ ∅ ⎠",
-    ...     hablar=False
-    ... )
+        solucion = Solution(
+            estrategia="GeometricSIA",
+            perdida=0.25,
+            distribucion_subsistema=np.array([0.0, 1.0]),
+            distribucion_particion=np.array([0.25, 0.75]),
+            particion="⎛A⎞⎛B⎞\\n⎝a⎠⎝∅⎠",
+            hablar=False,
+        )
+        print(solucion)
     """
 
     def __init__(
@@ -102,11 +94,24 @@ class Solution:
         particion: str,
         tiempo_total: float = FLOAT_ZERO,
         hablar: bool = True,
-        voz: Optional[str] = None,
+        voz: str | None = None,
     ) -> None:
-        """
-        Inicializa una nueva instancia de Solution.
-        Consultar la documentación de la clase para detalles de los parámetros.
+        """Inicializa la solución con los resultados del análisis de bipartición.
+
+        Args:
+            estrategia (str): Nombre de la estrategia de resolución usada.
+            perdida (float): Valor φ de pérdida de información integrada.
+            distribucion_subsistema (np.ndarray): Distribución marginal del
+                subsistema.
+            distribucion_particion (np.ndarray): Distribución marginal de la
+                bipartición óptima.
+            particion (str): Representación textual de la mejor bipartición.
+            tiempo_total (float): Tiempo de ejecución del algoritmo en
+                segundos. Por defecto ``0.0``.
+            hablar (bool): Si ``True``, anuncia la solución por voz al
+                imprimir. Por defecto ``True``.
+            voz (str | None): Identificador de voz pyttsx3. Si es ``None``,
+                se busca automáticamente una voz en español.
         """
         self.estrategia = estrategia
         self.perdida = perdida
@@ -117,34 +122,18 @@ class Solution:
         self.id_voz = voz
         self.hablar = hablar
 
-    def __obtener_voz_espanol(self, motor: Engine) -> Optional[str]:
-        """
-        Busca y obtiene un identificador de voz en español del sistema.
+    def __obtener_voz_espanol(self, motor: Engine) -> str | None:
+        """Busca la mejor voz disponible en español en el sistema.
 
-        Esta función implementa un sistema de prioridades para seleccionar
-        la mejor voz disponible en español, priorizando voces específicas
-        de diferentes regiones hispanohablantes.
+        Aplica un sistema de prioridades para seleccionar la voz más
+        adecuada entre las disponibles en pyttsx3.
 
         Args:
-        ----
-            motor:
-                Instancia del motor de síntesis de voz pyttsx3.Engine.
+            motor (Engine): Instancia del motor de síntesis de voz pyttsx3.
 
         Returns:
-        -------
-            Optional[str]:
-                El identificador de la voz seleccionada, o None si no se
-                encuentra ninguna voz.
-
-        Notes:
-        -----
-            El orden de prioridad es:
-            1. Sabina (México)
-            2. Helena (España)
-            3. Cualquier voz con "spanish" en el nombre
-            4. Cualquier voz con "español" en el nombre
-            5. Cualquier voz con "es-" en el identificador
-            6. Primera voz disponible si no se encuentra ninguna en español
+            str | None: Identificador de la voz seleccionada, o ``None`` si
+                no hay voces disponibles.
         """
         voces: list[Voice] = motor.getProperty("voices")
 
@@ -168,18 +157,17 @@ class Solution:
         return voces[0].id if voces else None
 
     def __anunciar_solucion(self) -> None:
-        """
-        Anuncia la solución encontrada usando síntesis de voz en español.
+        """Anuncia la solución por síntesis de voz en español.
 
-        Esta función configura y utiliza el motor de síntesis de voz para anunciar de forma audible que se ha encontrado una solución, incluyendo el valor φ calculado.
-
-        La función se ejecuta en un hilo separado para no bloquear la ejecución principal del programa mientras se realiza la síntesis de voz.
+        Configura pyttsx3 con velocidad ``VELOCIDAD_HABLA`` y volumen
+        ``VOLUMEN_HABLA``, luego anuncia el nombre de la estrategia y el
+        valor φ. Se ejecuta en un hilo separado (no bloqueante). Las
+        excepciones se silencian para no interrumpir la ejecución principal.
 
         Notes:
-        -----
-            - Utilizar una velocidad de habla más lenta (150) para mejor comprensión
-            - Se establece el volumen al 90% por defecto
-            - Maneja excepciones de forma silenciosa para no interrumpir la ejecución
+            Usa ``except Exception`` intencionalmente para no interrumpir
+            el flujo principal si el motor TTS falla (dispositivo sin audio,
+            drivers ausentes, etc.).
         """
         try:
             motor = pyttsx3.init()
@@ -188,8 +176,8 @@ class Solution:
             if id_voz:
                 motor.setProperty("voice", id_voz)
 
-            motor.setProperty("rate", 150)
-            motor.setProperty("volume", 0.9)
+            motor.setProperty("rate", VELOCIDAD_HABLA)
+            motor.setProperty("volume", VOLUMEN_HABLA)
 
             mensaje = f"Solución encontrada con {self.estrategia}." + (
                 f"El valor de fi es de {self.perdida:.2f}"
@@ -202,37 +190,29 @@ class Solution:
             print(f"Error al inicializar el motor de voz: {e}")
 
     def __str__(self) -> str:
-        """
-        Genera una representación en string formateada y coloreadita de la solución.
+        """Genera representación colorizada de la solución para terminal.
+
+        Si ``self.hablar`` es ``True``, lanza un hilo para el anuncio por
+        voz de forma no bloqueante.
 
         Returns:
-        -------
-            str:
-                Representación visual de la solución que incluye:
-                - Valor φ en verdecito
-                - Distribuciones del subsistema y partición
-                - Mejor partición encontrada en magenta
-                - Elementos decorativos en cyan
-
-        Notes:
-        -----
-            Utiliza la biblioteca colorama para el formato de colores, permitiedo una visualización clara por terminal.
+            str: Representación visual con valor φ, distribuciones,
+                partición óptima y tiempos de ejecución.
         """
-        bilinea = "═" * 50
-        trilinea = "≡" * 50
+        bilinea = "═" * ANCHO_DISPLAY
+        trilinea = "≡" * ANCHO_DISPLAY
 
         def formatear_distribucion(
             distribucion: np.ndarray,
-            evitar_desbordamiento=True,
-        ):
+            evitar_desbordamiento: bool = True,
+        ) -> str:
             rango = distribucion.size
             mensaje_desborde = ""
             if evitar_desbordamiento:
-                LIMITE = 64
-                excedente = rango - LIMITE
+                excedente = rango - LIMITE_VALORES_DISPLAY
                 if excedente > 0:
                     mensaje_desborde = f" {excedente} valores más.."
-                    rango = LIMITE
+                    rango = LIMITE_VALORES_DISPLAY
 
             datos = " ".join(
                 f"{Fore.WHITE}{distribucion[idx]:.4f}"
@@ -249,11 +229,10 @@ class Solution:
         es_pyphi = self.estrategia == "Pyphi"
         tipo_distribucion = "" if es_pyphi else "marginal"
 
-        tiempo_h, tiempo_m, tiempo_s = (
-            f"{self.tiempo_ejecucion/3600:.2f}",
-            f"{self.tiempo_ejecucion/60:.1f}",
-            f"{self.tiempo_ejecucion:.4f}",
-        )
+        tiempo_h = f"{self.tiempo_ejecucion / SEGUNDOS_HORA:.2f}"
+        tiempo_m = f"{self.tiempo_ejecucion / SEGUNDOS_MINUTO:.1f}"
+        tiempo_s = f"{self.tiempo_ejecucion:.4f}"
+
         return f"""{Fore.CYAN}{bilinea}
 
 {Fore.RED}{self.estrategia} fue la estrategia de solucion.
@@ -278,12 +257,5 @@ class Solution:
 {Fore.CYAN}{trilinea}{Style.RESET_ALL}"""
 
     def __repr__(self) -> str:
-        """
-        Implementa la representación oficial de la clase Solution.
-
-        Returns:
-        -------
-            str:
-                La misma representación que __str__ para consistencia.
-        """
+        """Delegación a ``__str__`` para consistencia en repr e impresión."""
         return self.__str__()

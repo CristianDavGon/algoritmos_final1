@@ -1,3 +1,26 @@
+"""
+Reporter: generación de reportes Markdown para resultados de GeoMIP y KGeoMIP.
+
+Módulo auxiliar de GeoMIP. Proporciona ``guardar_markdown`` para exportar
+resultados de bipartición (GeoMIP) o k-partición (KGeoMIP) a un archivo
+Markdown con resumen ejecutivo, tabla de resultados y detalle por caso.
+También incluye utilidades de formateo de particiones para salida legible.
+
+Typical usage example::
+
+    from pathlib import Path
+    from src.reporter import guardar_markdown
+
+    ruta_md = guardar_markdown(
+        resultados=[{"Prueba": 1, "Alcance": "AB", "Mecanismo": "AB",
+                     "Partición": "...", "Pérdida (φ)": 0.25,
+                     "Tiempo (s)": 1.2}],
+        ruta_md=Path("results/geomip/resultados_N8A.md"),
+        algoritmo="GeoMIP",
+        estado_inicio="10000000",
+    )
+"""
+
 from __future__ import annotations
 
 import re

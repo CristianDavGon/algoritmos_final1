@@ -1,61 +1,146 @@
+"""Middleware de perfilado de rendimiento para QNodes.
+
+Provee ``ProfilingManager``, ``ProfilerContext`` y el decorador
+``profile`` para medir el tiempo de ejecución y generar reportes
+HTML detallados con *pyinstrument*.
+
+El perfilado se activa/desactiva de forma dinámica a través de la
+propiedad ``aplicacion.profiler_habilitado``.  Cuando está
+deshabilitado, el decorador ``profile`` no añade overhead medible.
+
+Typical usage example::
+
+    from src.middlewares.profile import profile, gestor_perfilado
+
+    gestor_perfilado.start_session("analisis_qnodes")
+
+    @profile(name="calcular_phi")
+    def calcular_phi(sistema):
+        ...
+"""
+
+from __future__ import annotations
+
 import time
 from datetime import datetime
-
-from pathlib import Path
 from functools import wraps
-from typing import Optional, Callable, Any
+from pathlib import Path
+from typing import Any, Callable
+
 from pyinstrument import Profiler
 from pyinstrument.renderers import HTMLRenderer
+
+from src.constants.base import HTML_EXTENSION, PATH_PROFILING
 from src.models.base.application import aplicacion
 
 
-from src.constants.base import (
-    PATH_PROFILING,
-    HTML_EXTENSION,
-)
-
-
 class ProfilingManager:
-    """
-    Gestor central de profiling que mantiene configuración y estado
+    """Gestor central de perfilado: mantiene configuración y sesión activa.
+
+    A diferencia de la versión GeoMIP, el estado ``enabled`` es una
+    propiedad que consulta ``aplicacion.profiler_habilitado`` en tiempo
+    real, permitiendo activar/desactivar el perfilado sin reiniciar.
+
+    Attributes:
+        output_dir: Directorio raíz donde se almacenan los reportes HTML.
+        interval: Intervalo de muestreo en segundos para *pyinstrument*.
+        current_session: Ruta relativa de la sesión activa (o ``None``).
+
+    Example::
+
+        gestor = ProfilingManager()
+        gestor.start_session("experimento_01")
+        ruta = gestor.get_output_path("calcular_phi", "html")
     """
 
     def __init__(
         self,
         dir_salida: Path = Path(PATH_PROFILING),
         intervalo: float = 0.001,
-    ):
-        self.output_dir = dir_salida
-        self.interval = intervalo
-        self.current_session: Optional[str] = None
+    ) -> None:
+        """Inicializa el gestor de perfilado.
+
+        Args:
+            dir_salida: Directorio donde se guardarán los reportes.
+            intervalo: Intervalo de muestreo en segundos
+                (resolución del profiler).
+        """
+        self.output_dir: Path = dir_salida
+        self.interval: float = intervalo
+        self.current_session: str | None = None
         self._setup_directories()
 
     @property
     def enabled(self) -> bool:
+        """Indica si el perfilado está activo en este momento.
+
+        Consulta ``aplicacion.profiler_habilitado`` en cada acceso,
+        permitiendo cambios en tiempo de ejecución.
+
+        Returns:
+            ``True`` si el perfilado está habilitado.
+        """
         return aplicacion.profiler_habilitado
 
     def _setup_directories(self) -> None:
-        """Prepara estructura de directorios para resultados"""
+        """Crea el directorio de salida si el perfilado está habilitado."""
         if self.enabled:
             self.output_dir.mkdir(parents=True, exist_ok=True)
 
     def start_session(self, session_name: str) -> None:
+        """Abre una sesión de perfilado organizada por fecha y hora.
+
+        Crea la estructura
+        ``<output_dir>/<session_name>/DD_MM_YYYY/HHhrs`` y registra
+        la ruta relativa como sesión activa.
+
+        Args:
+            session_name: Nombre lógico de la sesión
+                (p. ej. ``"analisis_red_5"``).
+        """
         if self.enabled:
-            # timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             timestamp = datetime.now().strftime("%d_%m_%Y/%Hhrs")
-            session_path = self.output_dir / session_name / timestamp
+            session_path = (
+                self.output_dir / session_name / timestamp
+            )
             session_path.mkdir(parents=True, exist_ok=True)
-            self.current_session = str(session_path.relative_to(self.output_dir))
+            self.current_session = str(
+                session_path.relative_to(self.output_dir)
+            )
 
     def get_output_path(self, name: str, format: str) -> Path:
-        """Genera ruta de salida para un perfil específico"""
+        """Genera la ruta de salida para un reporte de perfil.
+
+        Args:
+            name: Nombre del perfil (generalmente el nombre de la función).
+            format: Extensión del archivo sin punto (p. ej. ``"html"``).
+
+        Returns:
+            Ruta absoluta al archivo de reporte dentro del directorio
+            de la sesión activa (o ``"default"`` si no hay sesión).
+        """
         session_dir = self.current_session or "default"
         return self.output_dir / session_dir / f"{name}.{format}"
 
 
 class ProfilerContext:
-    """
-    Contexto para medición de una función específica
+    """Gestor de contexto que encapsula la medición de una función.
+
+    Inicia el profiler al entrar (``__enter__``) y genera el reporte
+    HTML al salir (``__exit__``).  Si el gestor está deshabilitado,
+    ambos métodos son no-ops.
+
+    Attributes:
+        manager: Referencia al ``ProfilingManager`` configurado.
+        name: Identificador del perfil que se guardará.
+        context: Metadatos adicionales (args/kwargs de la función).
+        start_time: Marca de tiempo de inicio (``perf_counter``).
+        profiler: Instancia de ``pyinstrument.Profiler`` o ``None``.
+
+    Example::
+
+        with ProfilerContext(gestor_perfilado, "mi_funcion", {}) as ctx:
+            resultado = mi_funcion()
     """
 
     def __init__(
@@ -63,50 +148,100 @@ class ProfilerContext:
         manager: ProfilingManager,
         name: str,
         context: dict,
-    ):
-        self.manager = manager
-        self.name = name
-        self.context = context
-        self.start_time = None
-        self.profiler = (
+    ) -> None:
+        """Inicializa el contexto de perfilado.
+
+        Args:
+            manager: Gestor de perfilado activo.
+            name: Nombre del perfil a registrar.
+            context: Diccionario con metadatos de la ejecución.
+        """
+        self.manager: ProfilingManager = manager
+        self.name: str = name
+        self.context: dict = context
+        self.start_time: float | None = None
+        self.profiler: Profiler | None = (
             None
             if not manager.enabled
-            else Profiler(interval=manager.interval, async_mode="disabled")
+            else Profiler(
+                interval=manager.interval,
+                async_mode="disabled",
+            )
         )
 
-    def __enter__(self):
+    def __enter__(self) -> ProfilerContext:
+        """Inicia la medición si el perfilado está habilitado.
+
+        Returns:
+            La propia instancia de contexto.
+        """
         if self.manager.enabled:
             self.start_time = time.perf_counter()
             self.profiler.start()
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        """Detiene el profiler y escribe el reporte HTML.
+
+        Args:
+            exc_type: Tipo de excepción (si ocurrió alguna).
+            exc_val: Valor de la excepción.
+            exc_tb: Traceback de la excepción.
+        """
         if not self.manager.enabled:
             return
 
         self.profiler.stop()
 
-        # Generar reporte HTML detalladito
-        html_path = self.manager.get_output_path(f"{self.name}", HTML_EXTENSION)
+        # Generar reporte HTML detallado con línea de tiempo
+        html_path = self.manager.get_output_path(
+            self.name, HTML_EXTENSION
+        )
         with open(html_path, "w", encoding="utf-8") as f:
             f.write(
                 self.profiler.output(
-                    renderer=HTMLRenderer(show_all=True, timeline=True)
+                    renderer=HTMLRenderer(
+                        show_all=True,
+                        timeline=True,
+                    )
                 )
             )
 
 
-# Instancia global del gestor
+# Instancia global del gestor (singleton de módulo)
 gestor_perfilado = ProfilingManager()
 
 
-def profile(name: Optional[str] = None, context: Optional[dict] = None) -> Callable:
-    """
-    Decorador para perfilar funciones a nivel de llamados y ejecuciones.
+def profile(
+    name: str | None = None,
+    context: dict | None = None,
+) -> Callable:
+    """Decorador para perfilar funciones con pyinstrument.
+
+    Envuelve la función objetivo en un ``ProfilerContext``.  Si el
+    perfilado está deshabilitado, la función se ejecuta sin overhead.
+
+    Al usar este decorador en un método, agregar la nota en su
+    docstring::
+
+        Note:
+            Decorada con ``@profile``; genera reporte HTML en
+            ``review/profiling``.
 
     Args:
-        name: Nombre personalizado para el perfil
-        context: Información adicional de contexto
+        name: Nombre personalizado del perfil.  Si es ``None``,
+            se usa ``func.__name__``.
+        context: Diccionario con metadatos adicionales que se
+            adjuntan al registro del perfil.
+
+    Returns:
+        Decorador que envuelve la función en un contexto de perfilado.
+
+    Example::
+
+        @profile(name="phi_calculo")
+        def calcular_phi(sistema):
+            ...
     """
 
     def decorator(func: Callable) -> Callable:

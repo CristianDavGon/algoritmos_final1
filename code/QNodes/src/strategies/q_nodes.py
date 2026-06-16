@@ -1,116 +1,126 @@
+"""Implementación alternativa de QNodes con profiling integrado.
+
+Variante del algoritmo Queyranne que opera directamente sobre vértices
+``(tiempo, índice)`` sin precómputo del oracle. Emplea memoización
+explícita (``memoria_delta``, ``memoria_grupo_candidato``) para evitar
+re-evaluaciones costosas de EMD.
+
+Diferencias respecto a ``qnodes.py``:
+
+- Trabaja sobre vértices ``(t, idx)`` en lugar de máscaras de bits.
+- La función submodular se evalúa como diferencia de EMDs:
+  ``Δ = EMD(omega ∪ delta) - EMD(delta)``.
+- Incluye sesión de profiling via ``gestor_perfilado``.
+- Decorador ``@profile`` activo en ``algorithm``.
+
+Typical usage example::
+
+    estrategia = QNodes(tpm)
+    solucion = estrategia.aplicar_estrategia(
+        estado_inicial="100",
+        condicion="111",
+        alcance="110",
+        mecanismo="101",
+    )
+    print(solucion.perdida)
+"""
+
+from __future__ import annotations
+
 import time
 from typing import Union
-import numpy as np
-from src.middlewares.slogger import SafeLogger
-from src.funcs.iit import emd_efecto, ABECEDARY
-from src.middlewares.profile import gestor_perfilado, profile
-from src.funcs.format import fmt_biparticion_q
-from src.models.base.sia import SIA
 
-from src.models.core.solution import Solution
+import numpy as np
+
+from src.constants.base import (
+    ACTUAL,
+    COLS_IDX,
+    EFFECT,
+    INFTY_POS,
+    INT_ZERO,
+    LAST_IDX,
+    NET_LABEL,
+    TYPE_TAG,
+)
 from src.constants.models import (
     QNODES_ANALYSIS_TAG,
     QNODES_LABEL,
     QNODES_STRAREGY_TAG,
 )
-from src.constants.base import (
-    COLS_IDX,
-    INT_ZERO,
-    TYPE_TAG,
-    NET_LABEL,
-    INFTY_POS,
-    LAST_IDX,
-    EFFECT,
-    ACTUAL,
-)
+from src.funcs.format import fmt_biparticion_q
+from src.funcs.iit import ABECEDARY, emd_efecto
+from src.middlewares.profile import gestor_perfilado, profile
+from src.middlewares.slogger import SafeLogger
 from src.models.base.application import aplicacion
+from src.models.base.sia import SIA
+from src.models.core.solution import Solution
+
+# ---------------------------------------------------------------------------
+# Constantes de módulo
+# ---------------------------------------------------------------------------
+
+#: Valor de EMD local inicial usado como centinela antes de la primera
+#: iteración. Se elige suficientemente grande para ser superado siempre.
+_EMD_LOCAL_CENTINELA: float = 1e5
+
+# ---------------------------------------------------------------------------
+# Clase principal
+# ---------------------------------------------------------------------------
 
 
 class QNodes(SIA):
-    """
-    Clase QNodes para el análisis de redes mediante el algoritmo Q.
+    """Análisis de MIP via algoritmo Queyranne sobre vértices (t, idx).
 
-    Esta clase implementa un gestor principal para el análisis de redes que utiliza
-    el algoritmo Q para encontrar la partición óptima que minimiza la
-    pérdida de información en el sistema. Hereda de la clase base SIA (Sistema de
-    Información Activo) y proporciona funcionalidades para analizar la estructura
-    y dinámica de la red.
+    Implementa la versión alternativa del algoritmo Queyranne con:
 
-    Args:
-    ----
-        config (Loader):
-            Instancia de la clase Loader que contiene la configuración del sistema
-            y los parámetros necesarios para el análisis.
+    - Memoización de EMDs individuales (``memoria_delta``).
+    - Memoización de EMDs de grupos candidatos
+      (``memoria_grupo_candidato``).
+    - Sesión de profiling automática al instanciar.
+    - Decorador ``@profile`` activo en el método ``algorithm``.
 
     Attributes:
-    ----------
-        m (int):
-            Número de elementos en el conjunto de purview (vista).
+        m: Número de elementos en el alcance (futuros).
+        n: Número de elementos en el mecanismo (presentes).
+        tiempos: Tupla ``(array_presente, array_futuro)`` de ceros
+            que representan los estados por tiempo.
+        etiquetas: Lista de tuplas con etiquetas minúsculas y mayúsculas
+            del abecedario, una por dimensión.
+        vertices: Conjunto de todos los vértices ``(tiempo, índice)``
+            del subsistema activo.
+        memoria_delta: Caché de ``(emd, dist_marginal)`` por clave de
+            delta individual.
+        memoria_grupo_candidato: Caché de ``(emd, dist_marginal)`` por
+            clave de grupo candidato (bipartición completa).
+        indices_alcance: Índices de ncubos en el alcance activo.
+        indices_mecanismo: Índices de dimensiones en el mecanismo activo.
+        logger: Logger configurado con la etiqueta de la estrategia.
 
-        n (int):
-            Número de elementos en el conjunto de mecanismos.
+    Example::
 
-        tiempos (tuple[np.ndarray, np.ndarray]):
-            Tupla de dos arrays que representan los tiempos para los estados
-            actual y efecto del sistema.
-
-        etiquetas (list[tuple]):
-            Lista de tuplas conteniendo las etiquetas para los nodos,
-            con versiones en minúsculas y mayúsculas del abecedario.
-
-        vertices (set[tuple]):
-            Conjunto de vértices que representan los nodos de la red,
-            donde cada vértice es una tupla (tiempo, índice).
-
-        memoria (dict):
-            Diccionario para almacenar resultados intermedios y finales
-            del análisis (memoización).
-
-        logger:
-            Instancia del logger configurada para el análisis Q.
-
-    Methods:
-    -------
-        run(condicion, purview, mechanism):
-            Ejecuta el análisis principal de la red con las condiciones,
-            purview y mecanismo especificados.
-
-        algorithm(vertices):
-            Implementa el algoritmo Q para encontrar la partición
-            óptima del sistema.
-
-        funcion_submodular(deltas, omegas):
-            Calcula la función submodular para evaluar particiones candidatas.
-
-        view_solution(mip):
-            Visualiza la solución encontrada en términos de las particiones
-            y sus valores asociados.
-
-        nodes_complement(nodes):
-            Obtiene el complemento de un conjunto de nodos respecto a todos
-            los vértices del sistema.
-
-    Notes:
-    -----
-    - La clase implementa una versión secuencial del algoritmo Q para encontrar la partición que minimiza la pérdida de información.
-    - Utiliza memoización para evitar recálculos innecesarios durante el proceso.
-    - El análisis se realiza considerando dos tiempos: actual (presente) y
-      efecto (futuro).
+        estrategia = QNodes(tpm)
+        sol = estrategia.aplicar_estrategia("10", "11", "10", "11")
+        print(sol.perdida)
     """
 
-    def __init__(self, tpm: np.ndarray):
+    def __init__(self, tpm: np.ndarray) -> None:
         super().__init__(tpm)
         gestor_perfilado.start_session(
-            f"{NET_LABEL}{len(tpm[COLS_IDX])}{aplicacion.pagina_red_muestra}"
+            f"{NET_LABEL}"
+            f"{len(tpm[COLS_IDX])}"
+            f"{aplicacion.pagina_red_muestra}"
         )
         self.m: int
         self.n: int
         self.tiempos: tuple[np.ndarray, np.ndarray]
-        self.etiquetas = [tuple(s.lower() for s in ABECEDARY), ABECEDARY]
+        self.etiquetas: list[tuple] = [
+            tuple(s.lower() for s in ABECEDARY),
+            ABECEDARY,
+        ]
         self.vertices: set[tuple]
-        self.clave_submodular = [], []
-        self.memoria_delta = {}
-        self.memoria_grupo_candidato = {}
+        self.clave_submodular: list[list] = [[], []]
+        self.memoria_delta: dict = {}
+        self.memoria_grupo_candidato: dict = {}
 
         self.indices_alcance: np.ndarray
         self.indices_mecanismo: np.ndarray
@@ -123,17 +133,47 @@ class QNodes(SIA):
         condicion: str,
         alcance: str,
         mecanismo: str,
-    ):
-        self.sia_preparar_subsistema(estado_inicial, condicion, alcance, mecanismo)
+    ) -> Solution:
+        """Prepara el subsistema y ejecuta el algoritmo Queyranne.
 
-        # e.g. (1,0)=A (1,1)=B (1,2)=C #
-        futuro = tuple(
-            (EFFECT, idx_efecto) for idx_efecto in self.sia_subsistema.indices_ncubos
+        Construye los vértices ``(tiempo, índice)`` a partir del
+        subsistema preparado y delega en ``algorithm`` para encontrar
+        la bipartición óptima. El resultado se toma de
+        ``memoria_grupo_candidato`` con la clave de menor EMD.
+
+        Args:
+            estado_inicial: Estado inicial del sistema en binario,
+                p. ej. ``"100"``.
+            condicion: Condiciones de fondo; bit ``'1'`` = nodo activo.
+            alcance: Elementos futuros del subsistema;
+                bit ``'1'`` = incluir.
+            mecanismo: Elementos presentes del subsistema;
+                bit ``'1'`` = incluir.
+
+        Returns:
+            Objeto :class:`~src.models.core.solution.Solution` con la
+            bipartición de mínima pérdida encontrada.
+
+        Example::
+
+            sol = QNodes(tpm).aplicar_estrategia(
+                "100", "111", "110", "101"
+            )
+            assert sol.perdida >= 0.0
+        """
+        self.sia_preparar_subsistema(
+            estado_inicial, condicion, alcance, mecanismo
         )
 
-        # e.g. (0,0)=a (0,2)=c (0,4)=e #
+        # Vértices futuros: (EFFECT=1, idx) — p. ej. A=1, B=2, C=3
+        futuro = tuple(
+            (EFFECT, idx_efecto)
+            for idx_efecto in self.sia_subsistema.indices_ncubos
+        )
+        # Vértices presentes: (ACTUAL=0, idx) — p. ej. a=0, c=2
         presente = tuple(
-            (ACTUAL, idx_actual) for idx_actual in self.sia_subsistema.dims_ncubos
+            (ACTUAL, idx_actual)
+            for idx_actual in self.sia_subsistema.dims_ncubos
         )
 
         self.m = self.sia_subsistema.indices_ncubos.size
@@ -164,62 +204,59 @@ class QNodes(SIA):
         )
 
     @profile(context={TYPE_TAG: QNODES_ANALYSIS_TAG})
-    def algorithm(self, vertices: list[tuple[int, int]]):
-        """
-        Implementa el algoritmo Q para encontrar la partición óptima de un sistema que minimiza la pérdida de información, basándose en principios de submodularidad dentro de la teoría de lainformación.
+    def algorithm(
+        self,
+        vertices: list[tuple[int, int]],
+    ) -> tuple[tuple[int, int], ...]:
+        """Algoritmo Queyranne para bipartición de mínima pérdida.
 
-        El algoritmo opera sobre un conjunto de vértices que representan nodos en diferentes tiempos del sistema (presente y futuro). La idea fundamental es construir incrementalmente grupos de nodos que, cuando se particionan, producen la menor pérdida posible de información en el sistema.
+        Encuentra la bipartición del conjunto de vértices que minimiza
+        la función submodular de EMD, usando refinamiento incremental
+        greedy (Maximum Adjacency Ordering adaptado a vértices).
 
-        Proceso Principal:
-        -----------------
-        El algoritmo comienza estableciendo dos conjuntos fundamentales: omega (W) y delta.
-        Omega siempre inicia con el primer vértice del sistema, mientras que delta contiene todos los vértices restantes. Esta decisión no es arbitraria - al comenzar con un
-        solo elemento en omega, podemos construir grupos de manera incremental evaluando cómo cada adición afecta la pérdida de información.
+        El proceso se estructura en **fases > ciclos > iteraciones**:
 
-        La ejecución se desarrolla en fases, ciclos e iteraciones, donde cada fase representa un nivel diferente y conlleva a la formación de una partición candidata, cada ciclo representa un incremento de elementos al conjunto W y cada iteración determina al final cuál es el mejor elemento/cambio/delta para añadir en W.
-        Fase >> Ciclo >> Iteración.
+        - **Fase** (índice ``i``): una iteración del loop exterior que
+          produce una bipartición candidata y contrae el par colgante.
+        - **Ciclo** (índice ``j``): agrega un elemento delta a omega
+          seleccionando el de menor diferencia de EMD.
+        - **Iteración** (índice ``k``): evalúa cada delta candidato
+          contra el omega acumulado.
 
-        1. Formación Incremental de Grupos:
-        El algoritmo mantiene un conjunto omega que crece gradualmente en cada j-iteración. En cada paso, evalúa todos los deltas restantes para encontrar cuál, al unirse con omega produce la menor pérdida de información. Este proceso utiliza la función submodular para calcular la diferencia entre la EMD (Earth Mover's Distance) de la combinación y la EMD individual del delta evaluado.
+        Optimizaciones:
 
-        2. Evaluación de deltas:
-        Para cada delta candidato el algoritmo:
-        - Calcula su EMD individual si no está en memoria.
-        - Calcula la EMD de su combinación con el conjunto omega actual
-        - Determina la diferencia entre estas EMDs (el "costo" de la combinación)
-        El delta que produce el menor costo se selecciona y se añade a omega.
+        - ``memoria_delta``: caché de EMD por clave de delta individual.
+        - ``memoria_grupo_candidato``: caché de EMD por clave de grupo
+          (bipartición completa).
+        - Retorno anticipado si la EMD del delta es cero.
 
-        3. Formación de Nuevos Grupos:
-        Al final de cada fase cuando omega crezca lo suficiente, el algoritmo:
-        - Toma los últimos elementos de omega y delta (par candidato).
-        - Los combina en un nuevo grupo
-        - Actualiza la lista de vértices para la siguiente fase
-        Este proceso de agrupamiento permite que el algoritmo construya particiones
-        cada vez más complejas y reutilice estos "pares candidatos" para particiones en conjunto.
-
-        Optimización y Memoria:
-        ----------------------
-        El algoritmo utiliza dos estructuras de memoria clave:
-        - individual_memory: Almacena las EMDs y distribuciones de nodos individuales, evitando recálculos muy costosos.
-        - partition_memory: Guarda las EMDs y distribuciones de las particiones completas, permitiendo comparar diferentes combinaciones de grupos teniendo en cuenta que su valor real está asociado al valor individual de su formación delta.
-
-        La memoización es relevante puesto muchos cálculos de EMD son computacionalmente costosos y se repiten durante la ejecución del algoritmo.
-
-        Resultado:
-        ---------------
-        Al terminar todas las fases, el algoritmo selecciona la partición que produjo la menor EMD global, representando la división del sistema que mejor preserva su información causal.
+        Decorador ``@profile`` activo; los resultados de profiling se
+        almacenan en ``review/profiling/``.
 
         Args:
-            vertices (list[tuple[int, int]]): Lista de vértices donde cada uno es una
-                tupla (tiempo, índice). tiempo=0 para presente (t_0), tiempo=1 para futuro (t_1).
+            vertices: Lista de vértices ``(tiempo, índice)`` donde
+                ``tiempo=0`` corresponde al presente (t₀) y
+                ``tiempo=1`` al futuro (t₁).
 
         Returns:
-            tuple[float, tuple[tuple[int, int], ...]]: El valor de pérdida en la primera posición, asociado con la partición óptima encontrada, identificada por la clave en partition_memory que produce la menor EMD.
+            Clave de la bipartición óptima en ``memoria_grupo_candidato``
+            (tupla de vértices del lado primario).
+
+        Raises:
+            KeyError: Si la clave ganadora no está en
+                ``memoria_grupo_candidato`` (no debería ocurrir en
+                condiciones normales).
+
+        Example::
+
+            mip = estrategia.algorithm(vertices)
+            emd, dist = estrategia.memoria_grupo_candidato[mip]
         """
+        # TODO(refactor): considerar dividir en subfunciones dado que
+        # este método supera 40 líneas de lógica real.
         indice_emd = INT_ZERO
 
         for i in range(len(vertices) - 1):
-            # self.logger.debug(f"total: {len(vertices) - i}")
             omegas_ciclo = [vertices[0]]
             deltas_ciclo = vertices[1:]
 
@@ -227,15 +264,15 @@ class QNodes(SIA):
             dist_particion_candidata = None
 
             for j in range(len(deltas_ciclo) - 1):
-                # self.logger.critic(f"   {j=}")
-                emd_local = 1e5
+                emd_local: float = _EMD_LOCAL_CENTINELA
                 indice_mip: int
 
                 for k in range(len(deltas_ciclo)):
-                    emd_union, emd_delta, dist_marginal_delta = self.funcion_submodular(
-                        deltas_ciclo[k], omegas_ciclo
+                    emd_union, emd_delta, dist_marginal_delta = (
+                        self.funcion_submodular(
+                            deltas_ciclo[k], omegas_ciclo
+                        )
                     )
-
                     emd_iteracion = emd_union - emd_delta
 
                     if emd_iteracion < emd_local:
@@ -255,10 +292,10 @@ class QNodes(SIA):
                         indice_mip = k
                         emd_particion_candidata = emd_delta
                         dist_particion_candidata = dist_marginal_delta
-                # self.logger.critic(f"       [k]: {indice_mip}")
 
                 omegas_ciclo.append(deltas_ciclo[indice_mip])
                 deltas_ciclo.pop(indice_mip)
+
             self.memoria_grupo_candidato[
                 tuple(
                     deltas_ciclo[LAST_IDX]
@@ -288,50 +325,49 @@ class QNodes(SIA):
         )
 
     def funcion_submodular(
-        self, deltas: Union[tuple, list[tuple]], omegas: list[Union[tuple, list[tuple]]]
-    ):
-        """
-        Evalúa el impacto de combinar el conjunto de nodos individual delta y su agrupación con el conjunto omega, calculando la diferencia entre EMD (Earth Mover's Distance) de las configuraciones, en conclusión los nodos delta evaluados individualmente y su combinación con el conjunto omega.
+        self,
+        deltas: Union[tuple, list[tuple]],
+        omegas: list[Union[tuple, list[tuple]]],
+    ) -> tuple[float, float, np.ndarray]:
+        """Evalúa la diferencia de EMD entre delta individual y su unión con omega.
 
-        El proceso se realiza en dos fases principales:
+        Realiza dos evaluaciones:
 
-        1. Evaluación Individual:
-           - Crea una copia del estado temporal del subsistema.
-           - Activa los nodos delta en su tiempo correspondiente (presente/futuro).
-           - Si el delta ya fue evaluado antes, recupera su EMD y distribución marginal de memoria
-           - Si no, ha de:
-             * Identificar dimensiones activas en presente y futuro.
-             * Realiza bipartición del subsistema con esas dimensiones.
-             * Calcular la distribución marginal y EMD respecto al subsistema.
-             * Guarda resultados en memoria para seguro un uso futuro.
-
-        2. Evaluación Combinada:
-           - Sobre la misma copia temporal, activa también los nodos omega.
-           - Calcula dimensiones activas totales (delta + omega).
-           - Realiza bipartición del subsistema completo.
-           - Obtiene EMD de la combinación.
+        1. **Delta individual**: calcula ``EMD(delta)`` con caché en
+           ``memoria_delta``.
+        2. **Unión**: calcula ``EMD(omega ∪ delta)`` sin caché (depende
+           del estado actual de omega).
 
         Args:
-            deltas: Un nodo individual (tupla) o grupo de nodos (lista de tuplas)
-                   donde cada tupla está identificada por su (tiempo, índice), sea el tiempo t_0 identificado como 0, t_1 como 1 y, el índice hace referencia a las variables/dimensiones habilitadas para operaciones de substracción/marginalización sobre el subsistema, tal que genere la partición.
-            omegas: Lista de nodos ya agrupados, puede contener tuplas individuales
-                   o listas de tuplas para grupos formados por los pares candidatos o más uniones entre sí (grupos candidatos).
+            deltas: Vértice individual ``(tiempo, índice)`` o lista de
+                vértices que forman un grupo candidato.
+            omegas: Lista de nodos ya agrupados; puede contener tuplas
+                individuales o listas de tuplas (pares candidatos).
 
         Returns:
-            tuple: (
-                EMD de la combinación omega y delta,
-                EMD del delta individual,
-                Distribución marginal del delta individual
+            Tupla ``(emd_union, emd_delta, dist_marginal_delta)`` donde:
+
+            - ``emd_union``: EMD de la bipartición ``omega ∪ delta``.
+            - ``emd_delta``: EMD del delta individual.
+            - ``dist_marginal_delta``: distribución marginal del delta,
+              usada para almacenamiento externo en el caller.
+
+        Example::
+
+            emd_u, emd_d, dist = estrategia.funcion_submodular(
+                deltas=(1, 0),
+                omegas=[(0, 1), (0, 2)],
             )
-            Esto lo hice así para hacer almacenamiento externo de la emd individual y su distribución marginal en las particiones candidatas.
         """
-        vector_delta_marginal = None
-        self.clave_submodular = [], []
+        vector_delta_marginal: np.ndarray | None = None
+        self.clave_submodular = [[], []]
 
-        # Delta #
-
+        # --- Evaluación individual del delta ---
         clave_delta_actual, clave_delta_efecto = self.definir_clave(deltas)
-        clave_delta = tuple(clave_delta_actual), tuple(clave_delta_efecto)
+        clave_delta = (
+            tuple(clave_delta_actual),
+            tuple(clave_delta_efecto),
+        )
 
         idxs_alcance_delta = self.clave_submodular[EFFECT]
         dims_mecanismo_delta = self.clave_submodular[ACTUAL]
@@ -341,15 +377,22 @@ class QNodes(SIA):
                 np.array(idxs_alcance_delta, dtype=np.int8),
                 np.array(dims_mecanismo_delta, dtype=np.int8),
             )
-            vector_delta_marginal = particion_delta.distribucion_marginal()
-            emd_delta = emd_efecto(vector_delta_marginal, self.sia_dists_marginales)
-            self.memoria_delta[clave_delta] = emd_delta, vector_delta_marginal
-
+            vector_delta_marginal = (
+                particion_delta.distribucion_marginal()
+            )
+            emd_delta = emd_efecto(
+                vector_delta_marginal, self.sia_dists_marginales
+            )
+            self.memoria_delta[clave_delta] = (
+                emd_delta,
+                vector_delta_marginal,
+            )
         else:
-            emd_delta, vector_delta_marginal = self.memoria_delta[clave_delta]
+            emd_delta, vector_delta_marginal = (
+                self.memoria_delta[clave_delta]
+            )
 
-        # Unión #
-
+        # --- Evaluación combinada (omega ∪ delta) ---
         for omega in omegas:
             self.definir_clave(omega)
 
@@ -361,14 +404,36 @@ class QNodes(SIA):
             np.array(dims_mecanismo_union, dtype=np.int8),
         )
         vector_union_marginal = particion_union.distribucion_marginal()
-        emd_union = emd_efecto(vector_union_marginal, self.sia_dists_marginales)
+        emd_union = emd_efecto(
+            vector_union_marginal, self.sia_dists_marginales
+        )
 
         return emd_union, emd_delta, vector_delta_marginal
 
     def definir_clave(
         self,
         conjunto: Union[tuple[int, int], list[tuple[int, int]]],
-    ):
+    ) -> list[list[int]]:
+        """Actualiza ``clave_submodular`` con los índices del conjunto dado.
+
+        Acumula los índices de ``conjunto`` separados por tiempo en
+        ``clave_submodular[ACTUAL]`` y ``clave_submodular[EFFECT]``,
+        manteniéndolos ordenados.
+
+        Args:
+            conjunto: Vértice individual ``(tiempo, índice)`` o lista de
+                vértices ``[(tiempo, índice), ...]``.
+
+        Returns:
+            La lista ``clave_submodular`` actualizada:
+            ``[lista_actual, lista_efecto]``.
+
+        Example::
+
+            estrategia.clave_submodular = [[], []]
+            estrategia.definir_clave((0, 2))
+            # clave_submodular == [[2], []]
+        """
         if isinstance(conjunto, tuple):
             tiempo, indice = conjunto
             self.clave_submodular[tiempo].append(indice)
@@ -379,5 +444,21 @@ class QNodes(SIA):
         self.clave_submodular[EFFECT].sort()
         return self.clave_submodular
 
-    def nodes_complement(self, nodes: list[tuple[int, int]]):
+    def nodes_complement(
+        self,
+        nodes: list[tuple[int, int]],
+    ) -> list[tuple[int, int]]:
+        """Devuelve los vértices del subsistema que no están en ``nodes``.
+
+        Args:
+            nodes: Lista de vértices a excluir del conjunto completo.
+
+        Returns:
+            Lista con los vértices de ``self.vertices`` que no aparecen
+            en ``nodes``.
+
+        Example::
+
+            complemento = estrategia.nodes_complement([(0, 1)])
+        """
         return list(set(self.vertices) - set(nodes))
